@@ -1,12 +1,7 @@
+.gitignore
 Data/*
 .Rhistory
 .DS_Store
 .Rproj.user
 *.Rproj
 .RData
-TODO.txt
-Tests/
-CDI-online/
-
-
-

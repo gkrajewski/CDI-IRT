@@ -1,0 +1,456 @@
+---
+title: "Hebrew CDI:WG Comprehension analysis based on P. Król's code"
+author: "Grzegorz Krajewski"
+date: "19 07 2022"
+output: pdf_document
+---
+
+**Based on P. Król's excellent work on Polish data :)**
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center")
+```
+
+As a preparation we first load required libraries and functions:
+
+```{r libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(beepr)
+library(plyr) # We need it for laply()
+library(tidyverse) # We use it to process the data from the csv
+library(mirt)
+library(mirtCAT)
+library(parallel)
+library(ggpubr)
+source(paste0(getwd(),"/Functions_new/simulations.R"))
+# source(paste0(getwd(),"/Functions/get_first_item_responses.R")) Not sure what we need it for
+source(paste0(getwd(),"/Functions_new/misfits_removal.R"))
+source(paste0(getwd(),"/Functions_new/prepare_input_files.R"))
+source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
+```
+
+# Data preparation
+
+Then we load data from the local file,
+transform to right format etc.
+
+We split the responses from the provided scores.
+
+```{r}
+read_csv("Data/hebrew-wg.csv", skip = 2, na = character()) -> responses_demo
+if_else(responses_demo$sex == "Female", "girl",
+        if_else(responses_demo$sex == "Male", "boy", responses_demo$sex)) -> responses_demo$sex
+
+scores <- select(responses_demo, ! starts_with("p1_"))
+colnames(scores)[3:4] <- c("comprehension_from_file", "production_from_file")
+
+# Comprehension:
+comprehension <- select(responses_demo, 1 : last_col(2)) %>%
+     mutate(across(starts_with("p1_"), ~ if_else(.x != "", 1, 0)))
+rowSums(select(comprehension, starts_with("p1_"))) -> scores$comprehension_sum
+
+# Production:
+production <- select(responses_demo, 1 : last_col(2)) %>%
+     mutate(across(starts_with("p1_"), ~ if_else(.x == "produces", 1, 0)))
+rowSums(select(production, starts_with("p1_"))) -> scores$production_sum
+
+# Comparing scores from file with summed responses:
+write_csv(scores, "Data/scores_hebrew_wg.csv")
+
+# Around here we might want to change column names to make them consistent with Piotr's code
+# (age? sex?). Or change the names in subsequent code to make it consistently English.
+
+```
+
+**Warning: Scores provided in the file are different from summed**
+**responses from the same file (both comp and prod)!**
+
+Scores from the file are always greater than sums (or the same),
+which suggests they were calculated on a larger set of items.
+Max for comprehension from the file is `r max(scores$comprehension_from_file)`.
+Max for production from the file is `r max(scores$production_from_file)`.
+
+```{r}
+mean(scores$comprehension_from_file - scores$comprehension_sum >= 0)
+mean(scores$production_from_file - scores$production_sum >= 0)
+```
+
+Here we pick the comprehension data...
+
+```{r}
+comprehension -> responses_demo
+# production -> responses_demo
+```
+
+...and here we read the list of items (English, Hebrew, and IDs):
+
+```{r}
+read_csv("Data/hebrew-wg.csv", n_max = 3, col_names = FALSE, col_select = 3:last_col(2)) %>%
+  t %>% as.data.frame() -> cdi
+colnames(cdi) <- c("English", "Hebrew", "position")
+
+# TODO (later, since they are not unique now; also, maybe not here):
+# Here we can switch the names of items for the analyses between IDs, English, and hopefully Hebrew:
+# colnames(responses_demo)
+```
+
+Some English labels are duplicated as are
+some Hebrew labels too.
+So for the time being we work on IDs, which are fully unique.
+
+Here we prepare the responses matrix (columns starting with "p1_").
+
+```{r}
+responses <- as.matrix(select(responses_demo, starts_with("p1_")))
+print(paste0("There are ", nrow(responses), " parents who answered to ", ncol(responses),
+             " items and there are ", length(which(is.na(responses))), " missing responses."))
+```
+
+# Model creation
+
+For the model creation
+we first decide on the optimal number of quadrature points.
+We do it iteratively by fitting models with increasing numbers and
+comparing their fit. We start with the default and increase it in
+a number of arbitrary, but hopefully not unreasonable, steps.
+
+We also compare the parameter estimates for the first item,
+just out of curosity: as the goodness of fit stabilises, so
+should the estimates.
+
+*It may take some time! Switch eval on only if you really need to recalculate.*
+
+```{r eval=FALSE}
+quadpts <- c(61, 151, 301, 451, 601, 751)
+quadpts_comp <- sapply(quadpts, function(x) {
+     cat(paste0("\n -- ", "quadpts: ", x, " -- \n"))
+     mirt(responses, 1, SE=TRUE, quadpts = x, technical = list(NCYCLES = 100000)) -> m
+     list(quadpts = x, conv = m@OptimInfo$converged, logLik = m@Fit$logLik,
+          item1pars = coef(m, simplify = T)$items[1, 1:2])
+})
+```
+
+Here are the fits (*if eval is on*):
+
+```{r eval=FALSE}
+quadpts_comp
+```
+
+And here are the parameter estimates for the first item
+(*if eval is on*):
+
+```{r eval=FALSE}
+sapply(1:ncol(quadpts_comp), function(x) quadpts_comp[,x]$item1pars)
+```
+
+Based on the above we set the number of quadrature points to 301.
+
+```{r}
+quadtp <- 301
+```
+
+We then iteratively fit the model and remove any misfits until we have fits for all items.
+
+*It may take some time!*
+
+We save the model to a file to save time in the future
+(if you want to refit the model, switch the eval on):
+
+```{r eval=FALSE}
+output <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
+                          output_file = "Data/hebrew_wg.RData")
+```
+
+We load the model from a file (comment out if just fitted above)
+and print a basic summary:
+
+```{r}
+load("Data/hebrew_wg.RData")
+mod <- output[[1]]
+items_removed <- output[[2]]
+rm(output) # to save space
+
+mod
+```
+
+## Items fit
+
+No items were misfits in the process of model fitting.
+
+```{r}
+items_removed
+```
+
+No need to remove anything from the response matrix or the list of items.
+
+```{r}
+items_to_remove_ids <- as.numeric(laply(unlist(items_removed), function(x) substr(x, 5, nchar(x))))
+cdi[which(cdi$number.ws %in% items_to_remove_ids), ]
+```
+
+```{r}
+if(length(items_to_remove_ids)) {
+  responses_r <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
+  cdi_r <- cdi[-which(cdi$number.ws %in% items_to_remove_ids), ]
+  if (nrow(cdi_r) == ncol(responses_r)) print(paste0(ncol(responses_r), " items left after removal."))
+} else{
+  responses_r <- responses
+  cdi_r <- cdi
+}
+```
+
+## Local dependence
+
+*Check and explore the following code in the future (also compare with Kachergis et al., 2022)*
+
+```{r eval=FALSE}
+# I can't make the following code hide the results...
+residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
+save(residuals, file = "Data/hebrew_wg_comp_residuals.RData")
+```
+
+```{r}
+load("Data/hebrew_wg_comp_residuals.RData")
+residuals_up <- residuals
+residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
+hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
+```
+
+```{r}
+summary(as.vector(residuals_up))
+```
+
+The most highly mutually dependent positions:
+
+```{r}
+indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
+data.frame(pos1 = cdi_r[indexes[, 1], "position"], pos2 = cdi_r[indexes[, 2], "position"], CramersV = residuals_up[indexes])
+```
+
+But no pair reaches the threshold of 0.5 so we don't remove anything.
+
+# Model exploration
+
+## IRT items parameteres
+
+```{r}
+params_IRT <- as.data.frame(coef(mod, simplify = TRUE, IRTpars = TRUE)$items)[1:2]
+cdi_r <- cbind(params_IRT, cdi_r)
+```
+
+Scatterplot of difficulty by discrimination
+(*we use English labels for my sake, but could easily change to Hebrew as well;
+also, if we had categories we could add them as colours*):
+
+```{r fig.width=12, fig.height=8}
+# ggplot(params_cdi, aes(b, a, colour=category, label=position)) +
+ggplot(cdi_r, aes(b, a, label=English)) +
+  geom_text(check_overlap = T) +
+  geom_point(alpha = 0.3) +
+  xlab("Difficulty") +
+  ylab("Discrimination") +
+#  labs(colour = "Category") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "grey"),
+  legend.position = "top"
+)
+```
+
+## Ability vs. raw scores
+
+We estimate ability levels for children from the sample based on the model.
+
+```{r}
+scores <- cbind(scores, fscores(mod, method = "MAP", full.scores.SE = TRUE))
+```
+
+*Explore the failed convergence? Does it have something to do with
+the chosen MAP method?*
+
+Plot the estimated ability level against raw scores:
+
+```{r}
+ggplot(scores, aes(comprehension_sum, F1)) +
+  geom_point() +
+  ylab("Ability level (theta)") +
+  xlab("Raw score (sum of checked items)") +
+  labs(title = "Hebrew CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+)
+```
+
+The scatterplot above shows that IRT estimates get "normalised",
+compared to raw scores, as can be seen on the following histograms
+(flat distribution for raw scores vs. bell-like distribution for *theta* estimates).
+
+```{r}
+# Should be in two separate chunks perhaps?
+hist(scores$comprehension_sum, xlab = "Raw sums", main = "")
+hist(scores$F1, xlab = "Estimated ability levels", main = "")
+```
+
+
+## Ability vs. SE
+
+Plot the ability level against SE:
+
+```{r fig.width=12, fig.height=8}
+ggplot(scores, aes(F1, SE_F1)) +
+  geom_point(alpha = 0.3) +
+  xlab("Ability level (theta)") +
+  ylab("Standard error (SE)") +
+  labs(title = "Hebrew CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+)
+```
+
+The scatterplot above shows increasing errors at both extremes of the ability level.
+Perhaps due to floor and ceiling effects. Errors higher than 0.1 highly unfrequent though:
+
+```{r}
+hist(scores$SE_F1, main = "Histogram of SE", xlab = "SE")
+```
+
+## SE and ability level vs. age
+
+The graph below shows that higher error rates are at and close to age range limits
+(which is sort of obvious, given the relation between theta and age).
+But it also shows that high outliers are at every age.
+
+```{r fig.width=12, fig.height=8 }
+ggplot(data.frame(age = as.factor(responses_demo$age), SE = scores$SE_F1), aes(age, SE)) +
+  geom_boxplot() +
+  xlab("Age (months)") +
+  ylab("Standard error of ability estimations") +
+  labs(title = "CDI: WS") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+  )
+```
+
+So let's see the relation between ability level and age (and first between raw scores and age).
+We add SE as colour.
+
+```{r}
+ggplot(scores) +
+  geom_point(aes(age, comprehension_sum))
+ggplot(scores) +
+  geom_point(aes(age, F1, col = SE_F1)) +
+  scale_fill_gradient(low="green", high="red", aesthetics = "col") +
+  labs(y = "ability level", col = "SE")
+```
+
+
+# Simulations
+
+```{r}
+params <- as.data.frame(coef(mod, simplify = T)$items)[1:2]
+mo <- generate.mirt_object(params, '2PL')
+cl <- makeCluster(detectCores())
+```
+
+## Whole pool for everyone
+
+```{r eval=F}
+message(paste("Starting simulation @ ", Sys.time()))
+results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
+                       local_pattern = responses_r, cl = cl, design = list(min_items = ncol(responses_r)))
+# results_all1 <- mirtCAT(mo = mod, method = "MAP", criteria = "MI", start_item = "MI",
+#                       local_pattern = responses_r, cl = cl, design = list(min_items = ncol(responses_r)))
+save(results_all, file = "Data/hebrew_wg_comp_sim_all.Rdata")
+message(paste("Finished @ ", Sys.time()))
+beep()
+```
+
+```{r}
+load("Data/hebrew_wg_comp_sim_all.Rdata")
+report_sim_results(results_all, select(scores, contains("F1")))
+```
+
+Based on the whole pool simulation we can examine decreasing average SE with each item
+(we plot it up to 100 items: no need for more).
+
+```{r fig.width=12, fig.height=8, warning=FALSE}
+SE_history <- laply(results_all, function(x) x$thetas_SE_history)
+meanSE_item <- as.data.frame(colMeans(SE_history))
+meanSE_item$item <- row.names(meanSE_item)
+colnames(meanSE_item) <- c("mean_SE", "item")
+meanSE_item$item <- as.numeric(meanSE_item$item)
+
+ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
+  xlab ("Test length") +
+  ylab ("Mean SE") +
+  labs(title = "Hebrew CDI:WG Comp") +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  ) + 
+  scale_y_continuous(breaks = c(0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1)) + 
+  scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
+# Warning means we skip 324 items (because we plot the first 100 only).
+```
+
+## SE = 0.1 stop criterion
+
+The plot above shows that we need quite a number of items (ca. 70) to reach SE=.1 on average.
+Let's try a simulation.
+
+```{r eval=F}
+results_SE1 <- sim_se(0.1, file = "Data/hebrew_wg_comp_sim_se1.RData")
+```
+
+```{r}
+load("Data/hebrew_wg_comp_sim_se1.Rdata")
+results_SE1 <- results
+report_sim_results(results_SE1, select(scores, contains("F1")))
+```
+
+```{r fig.width=12, fig.height=8}
+plot_length(results_SE1, "Hebrew CDI:WG Comp", 0.1)
+```
+
+## SE = 0.15 stop criterion
+
+```{r eval=F}
+results_SE15 <- sim_se(0.15, file = "Data/hebrew_wg_comp_sim_se15.RData")
+```
+
+```{r}
+load("Data/hebrew_wg_comp_sim_se15.Rdata")
+results_SE15 <- results
+report_sim_results(results_SE15, select(scores, contains("F1")))
+```
+
+```{r fig.width=12, fig.height=8}
+plot_length(results_SE15, "Hebrew CDI:WG Comp", 0.15)
+```
+
+## Different start thetas
+
+```{r eval=F, message=FALSE, echo=FALSE}
+start_thetas <- get_start_thetas(scores, "age", "sex")
+fscores_aggr <- start_thetas[[1]]
+start_thetas <- start_thetas[[2]]
+```
+
+TODO: Simulations with different start thetas when stop criterion would be specified
+
+# Input files preparation
+
+```{r eval=F}
+prepare_input_files(params, cdi_r$Hebrew, fscores_aggr,
+                    question = "Does your child understand:", group = "comp", id = cdi_r$position,
+                    file1 = "items-HebEng-WG-comp.csv", file2 = "startThetas-Hebrew-WG-comp.csv")
+```
+
+
+
