@@ -1,0 +1,108 @@
+---
+title: "Tests"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center")
+```
+
+Load libraries and functions:
+
+```{r libraries, warning=FALSE, message=FALSE}
+library(mirt)
+library(mirtCAT)
+library(parallel)
+# library(plyr)
+# library(ggpubr)
+```
+
+```{r}
+directory <- paste0(getwd(), "/Tests/wg-cat/")
+items <- read.csv(paste0(directory, "items.csv"), fileEncoding = "UTF-8")
+startThetas <- read.csv(paste0(directory, "startThetas.csv"), fileEncoding = "UTF-8")
+settings <- read.csv(paste0(directory, "settings&translations.csv"), fileEncoding = "UTF-8", sep=";")
+```
+
+```{r}
+group <- "gesty"
+load(paste0(directory, "responses_demo_gestures"))
+load(paste0(directory, "responses_gestures"))
+```
+
+```{r}
+items <- items[items$group == group, ]
+```
+
+```{r}
+#responses <- responses_r
+responses <- responses[which(responses_demo$months >= 16), ]
+responses_demo <- responses_demo[responses_demo$months >= 16, ]
+```
+
+Get start theta for each respondent by months and gender 
+
+```{r}
+start_thetas_vector <- as.matrix(
+  mapply(
+    function(age, gender){
+      return(startThetas[startThetas$age == age & startThetas$gender == gender & startThetas$group == group, "theta"])
+    },
+    responses_demo$months,
+    responses_demo$gender
+  )
+)
+start_thetas_vector <- as.numeric(start_thetas_vector)
+start_thetas_vector <- as.matrix(start_thetas_vector) 
+```
+
+Get items params
+
+```{r}
+params <- items[,c("a1", "d")]
+```
+
+Prepare simulation settings
+
+```{r}
+method <- settings[settings$text_type == paste0(group, "MirtMethod"), "text"]
+criteria <- settings[settings$text_type == paste0(group, "MirtCriteria"), "text"]
+min <- settings[settings$text_type == paste0(group, "minItemNr"), "text"]
+max <- settings[settings$text_type == paste0(group, "maxItemNr"), "text"]
+se <- as.numeric(settings[settings$text_type == paste0(group, "MirtSeTheta"), "text"])
+```
+
+Do simulation
+
+```{r}
+mo <- generate.mirt_object(params, '2PL')
+cl <- makeCluster(detectCores())
+sim_results <- mirtCAT(
+  mo = mo, method = method, criteria = criteria, start_item = "MI", local_pattern = responses, cl = cl,
+  design = list(min_SEM = se, max_items = max, min_items = min, thetas.start = start_thetas_vector)
+  )
+```
+
+```{r}
+test <- 224
+sim_results[[test]]
+```
+```{r}
+responses_demo[test, 1:5]
+```
+
+Prepare test data frame
+
+```{r}
+answers <- data.frame(
+  items = c("", items[sim_results[[test]]$items_answered, "item"]),
+  responses = c("", sim_results[[test]]$raw_responses[sim_results[[test]]$items_answered]),
+  SE = as.vector(sim_results[[test]]$thetas_SE_history),
+  theta = as.vector(sim_results[[test]]$thetas_history)
+)
+
+answers[answers$responses == "2", "responses"] <- "Tak"
+answers[answers$responses == "1", "responses"] <- "Nie"
+
+write.csv(answers, file=paste0(directory, group, "_", responses_demo[test, ]$gender, "_", responses_demo[test, ]$months, ".csv"), fileEncoding = "utf-8", row.names=F)
+```

@@ -261,7 +261,9 @@ ggplot(data.frame(round(table(cuts) / nrow(responses_r) * 100, 1)), aes(x = cuts
 ```{r eval=F}
 output2 <- get_start_thetas(responses_demo[which(responses_demo$months >= 16), ], fscores)
 fscores_aggr <- output2[[1]]
+fscores_aggr$F1 <- fscores_aggr$F1 - 2
 start_thetas <- output2[[2]]
+start_thetas <- start_thetas - 2
 ```
 
 TODO: Simulations with different start thetas when stop criterion would be specified
@@ -269,7 +271,7 @@ TODO: Simulations with different start thetas when stop criterion would be speci
 # Input files preparation
 
 ```{r eval=F}
-prepare_input_files(params, cdi_r, fscores_aggr, question = "Czy Twoje dziecko rozumie", group = "mowa", file1 = "items-WG-comp.csv", file2 = "startThetas-WG-comp.csv")
+prepare_input_files(params, cdi_r, fscores_aggr, question = "Czy Twoje dziecko mówi", group = "mowa", file1 = "items-WS.csv", file2 = "startThetas-WS.csv")
 ```
 
 

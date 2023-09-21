@@ -406,3 +406,22 @@ get_sim_results(results_SE2_theta2, fscores_r, params)
 ```{r}
 get_first_item_responses(results_SE2_theta2, responses_r)
 ```
+
+# Prepare input files
+
+```{r}
+items <- params
+items$position <- row.names(params)
+items$question <- "Czy Twoje dziecko wykonuje"
+items$group <- "gesty"
+write.csv(items, file = "items-WG-gestures.csv", fileEncoding = "UTF-8", row.names = F)
+```
+
+```{r}
+start_thetas_df <- fscores_aggr
+start_thetas_df$F1 <- start_thetas_df$F1 - 2
+colnames(start_thetas_df) <- c("age", "gender", "theta")
+start_thetas_df$group <- "gesty"
+write.csv(start_thetas_df, file = "startThetas-WG-gestures.csv", fileEncoding = "UTF-8", row.names = F)
+```
+

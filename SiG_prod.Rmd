@@ -285,12 +285,40 @@ ggplot(data.frame(round(table(cuts) / nrow(responses_r) * 100, 1)), aes(x = cuts
   theme(text = element_text(size=16))
 ```
 
+## SE = 0.17 stop criterion
+
+```{r eval=F}
+results_SE17 <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI", local_pattern = responses_r, cl = cl, design = list(min_SEM = 0.17))
+```
+
+```{r}
+get_sim_results(results_SE17, fscores_r, params)
+```
+
+```{r fig.width=12, fig.height=8}
+#Prepare cuts
+tests_lengths <- laply(results_SE17, function(x) length(x$items_answered))
+cuts <- cut(tests_lengths, breaks = c(0, 10, 20, 30, 40, 50, 60, 75, 100, 378, 379), labels = c("1 - 10", "11 - 20", "21 - 30", "31 - 40", "41 - 50", "51 - 60", "61 - 75", "76 - 100", "101 - 378", "379 (all)"))
+
+#Plot
+ggplot(data.frame(round(table(cuts) / nrow(responses_r) * 100, 1)), aes(x = cuts, y = Freq)) +
+  xlab("Number of items administered") +
+  ylab("Percent of respondents (%)") +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Freq), vjust = -0.3, size=6) + 
+  labs(title = "CDI: WG production (16 - 18 months children). SE = 0.17 stop criterion") +
+  theme_pubclean() +
+  theme(text = element_text(size=16))
+```
+
 ## Different start thetas
 
 ```{r eval=F}
 output2 <- get_start_thetas(responses_demo[which(responses_demo$months >= 16), ], fscores_r)
 fscores_aggr <- output2[[1]]
+fscores_aggr$F1 <- fscores_aggr$F1 - 2
 start_thetas <- output2[[2]]
+start_thetas <- start_thetas - 2
 ```
 
 TODO: Simulations with different start thetas when stop criterion would be specified
@@ -298,7 +326,7 @@ TODO: Simulations with different start thetas when stop criterion would be speci
 # Input files preparation
 
 ```{r eval=F}
-prepare_input_files(params, cdi_r, fscores_aggr, question = "Czy Twoje dziecko rozumie", group = "mowa", file1 = "items-WG-comp.csv", file2 = "startThetas-WG-comp.csv")
+prepare_input_files(params, cdi_r, fscores_aggr, question = "Czy Twoje dziecko mówi", group = "mowa", file1 = "items-WG-prod.csv", file2 = "startThetas-WG-prod.csv")
 ```
 
 

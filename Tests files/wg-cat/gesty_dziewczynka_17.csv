@@ -1,0 +1,37 @@
+"items","responses","SE","theta"
+"","",1,-1.25467938373836
+"daje komuś trzymany przedmiot","Tak",0.94203809178396,0.0494826745924448
+"czesze się szczotką lub grzebieniem","Tak",0.680525446229979,0.466546889081748
+"myje i wyciera twarz lub ręce","Tak",0.56894167248901,0.816298085859882
+"karmienie łyżką","Tak",0.510998281446804,1.13465871708537
+"mycie lub wycieranie","Tak",0.474600597814999,1.4510723029391
+"przewijanie lub wysadzanie","Tak",0.442166114959371,1.78264571819606
+"„myje” naczynia","Tak",0.442659077323206,1.89064650674564
+"ubieranie (próby wkładania czapki czy butów lub skarpetek)","Tak",0.433910301099056,1.92869011076517
+"trzyma samolocik i lata nim","Nie",0.571397022701358,2.16826202761117
+"mówienie do lalki/misia","Tak",0.580962306643244,2.22842477673588
+"kładzie palec na ustach („cicho!”)","Nie",0.399270840328738,1.84712184707757
+"karmienie z butelki","Tak",0.39380010798759,1.87759016418419
+"huśtanie, kołysanie, usypianie","Tak",0.389626823773652,1.90026284552597
+"przelewa płyny na niby","Tak",0.387658181725784,1.92560654202232
+"przykrywanie kocykiem","Tak",0.384217858302635,1.94313122088594
+"czesanie","Tak",0.381561922561439,1.95644054368073
+"wożenie w wózku","Tak",0.379889797647865,1.96975383568297
+"przykłada głowę do ręki i mruży oczy, żeby pokazać, że śpi","Tak",0.381676278593718,1.98711289660634
+"kładzenie do łóżka","Tak",0.380372819265047,1.99438839526365
+"kiwa głową potakująco","Tak",0.381136463597728,2.00563102255552
+"śpiewa","Tak",0.382705248932877,2.01880503283039
+"gra na instrumentach (trąbka, cymbałki, fortepian itp.)","Nie",0.330433992444508,1.86779461199012
+"zakłada korale, bransoletkę lub zegarek","Tak",0.329732153319142,1.8743566616349
+"pokazuje, że coś jest gorące, dmuchając lub odsuwając palec","Tak",0.329068097377284,1.88039149623204
+"pokazuje „jaki jestem duży!”/„jaka jestem duża!”","Tak",0.330021097714937,1.89148491664956
+"posyła całusy na odległość","Nie",0.279460802317143,1.70039696112205
+"noszenie na rękach","Tak",0.278710454794301,1.7050919740187
+"wkłada buta lub skarpetkę","Tak",0.278069228041417,1.70985038264647
+"wkłada czapkę","Tak",0.27760128463244,1.71475142232644
+"kręci kierownicą","Tak",0.278028411625845,1.72343415528345
+"myje zęby","Tak",0.27774273745486,1.72876595079658
+"wzrusza ramionami lub rozkłada ręce, żeby pokazać, że czegoś nie ma","Tak",0.277453302635185,1.73323312090944
+"na niby miesza łyżeczką płyn w naczyniu","Tak",0.276972333677486,1.73673143767449
+"stuka młotkiem","Tak",0.277540193688887,1.74466774929921
+"wącha kwiatki","Tak",0.277145002229759,1.74819312478937

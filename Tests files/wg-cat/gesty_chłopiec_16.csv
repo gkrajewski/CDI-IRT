@@ -1,0 +1,19 @@
+"items","responses","SE","theta"
+"","",1,-1.56678442326925
+"wyciąga rękę, aby pokazać trzymany przedmiot","Tak",0.949595001229876,0.0423051454521454
+"czesze się szczotką lub grzebieniem","Tak",0.681162123506592,0.465261472917106
+"myje i wyciera twarz lub ręce","Nie",0.493691024430193,0.130402110994319
+"noszenie na rękach","Nie",0.43184599046255,-0.0490580022588762
+"na niby miesza łyżeczką płyn w naczyniu","Tak",0.359747963046683,0.191724539001952
+"wkłada buta lub skarpetkę","Tak",0.329178527301372,0.346591658494723
+"kładzenie do łóżka","Nie",0.300274548689434,0.261630639763009
+"wącha kwiatki","Nie",0.285105931981732,0.148336460313739
+"pokazuje, że coś jest gorące, dmuchając lub odsuwając palec","Tak",0.265734026660132,0.260929557310005
+"zakłada korale, bransoletkę lub zegarek","Tak",0.253011694456905,0.350652843910959
+"karmienie łyżką","Tak",0.244263204167151,0.496797516342887
+"czesanie","Tak",0.236893969352647,0.610669181447318
+"przykrywanie kocykiem","Nie",0.223495929537213,0.561555521372998
+"wożenie w wózku","Nie",0.213972571315369,0.512118651230773
+"huśtanie, kołysanie, usypianie","Nie",0.206992392183735,0.478325898578869
+"karmienie z butelki","Tak",0.201022995982079,0.559199849140684
+"ubieranie (próby wkładania czapki czy butów lub skarpetek)","Nie",0.195916662398,0.533270331039518
