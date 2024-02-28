@@ -23,7 +23,7 @@ library(parallel)
 library(ggpubr)
 source(paste0(getwd(),"/Functions_new/simulations.R"))
 # source(paste0(getwd(),"/Functions/get_first_item_responses.R")) Not sure what we need it for
-source(paste0(getwd(),"/Functions_new/misfits_removal.R"))
+source(paste0(getwd(),"/Functions_new/fit_models.R"))
 source(paste0(getwd(),"/Functions_new/prepare_input_files.R"))
 source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
 ```
@@ -84,7 +84,7 @@ comprehension -> responses_demo
 ...and here we read the list of items (English, Hebrew, and IDs):
 
 ```{r}
-read_csv("Data/hebrew-wg.csv", n_max = 3, col_names = FALSE, col_select = 3:last_col(2)) %>%
+read_csv("Data/hebrew_wg.csv", n_max = 3, col_names = FALSE, col_select = 3:last_col(2)) %>%
   t %>% as.data.frame() -> cdi
 colnames(cdi) <- c("English", "Hebrew", "position")
 
@@ -223,7 +223,7 @@ The most highly mutually dependent positions:
 
 ```{r}
 indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
-data.frame(pos1 = cdi_r[indexes[, 1], "position"], pos2 = cdi_r[indexes[, 2], "position"], CramersV = residuals_up[indexes])
+data.frame(pos1 = cdi_r[indexes[, 1], "English"], pos2 = cdi_r[indexes[, 2], "English"], CramersV = residuals_up[indexes])
 ```
 
 But no pair reaches the threshold of 0.5 so we don't remove anything.

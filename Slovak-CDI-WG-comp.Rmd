@@ -23,7 +23,7 @@ library(parallel)
 library(ggpubr)
 source(paste0(getwd(),"/Functions_new/simulations.R"))
 # source(paste0(getwd(),"/Functions/get_first_item_responses.R")) Not sure what we need it for
-source(paste0(getwd(),"/Functions_new/misfits_removal.R"))
+source(paste0(getwd(),"/Functions_new/fit_models.R"))
 source(paste0(getwd(),"/Functions_new/prepare_input_files.R"))
 source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
 ```
@@ -256,7 +256,7 @@ also, if we had categories we could add them as colours*):
 
 ```{r item_parameters_plot, fig.width=12, fig.height=8}
 # ggplot(params_cdi, aes(b, a, colour=category, label=position)) +
-ggplot(cdi, aes(b, a, label=item_definition)) +
+ggplot(cdi, aes(b, a, label=english_gloss)) +
   geom_text(check_overlap = T) +
   geom_point(alpha = 0.3) +
   xlab("Difficulty") +

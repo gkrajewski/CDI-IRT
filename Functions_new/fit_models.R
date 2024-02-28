@@ -1,17 +1,20 @@
 quadpts_comp <- function(responses, quadpts, NCYCLES, output_file = NULL) {
+  cat(paste("Starting number of quadrature points (quadpts) comparison for the following values:",
+            paste(quadpts, collapse = ", "), "\n"))
   sapply(quadpts, function(x) {
-    cat(paste0("\n -- ", "quadpts: ", x, " -- \n"))
+    cat(paste("\n -- quadpts:", x, "@", Sys.time(), "-- \n"))
     mod <- mirt(data = responses, model = 1, SE = TRUE, quadpts = x, technical = list(NCYCLES = NCYCLES))
     list(quadpts = x, conv = mod@OptimInfo$converged, logLik = mod@Fit$logLik,
          item1pars = coef(mod, simplify = T)$items[1, 1:2])
-  }) -> output
+  }) -> quadpts
 
   if (!is.null(output_file)){
-    save(output, file = output_file)
+    save(quadpts, file = output_file)
     cat(paste0("\nOutput is saved as ", output_file, " in ", getwd()))
   }
+  cat(paste("\nFinished @", Sys.time()))
   beep()
-  return(output)
+  return(quadpts)
 }
 
 misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, maxN = ncol(responses)){
@@ -65,12 +68,12 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
 
   }
 
-  output <- list(mod, items_removed)
+  model <- list(mod, items_removed)
   if (!is.null(output_file)){
-    save(output, file = output_file)
+    save(model, file = output_file)
     cat(paste0("\nOutput is saved as ", output_file, " in ", getwd()))
   }
   beep()
-  return(output)
+  return(model)
 
 }
