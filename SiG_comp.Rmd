@@ -34,8 +34,8 @@ load("Data/SiG_comp.RData")
 Load data downloaded from https://drive.google.com/file/d/1i4YupJCfE6qt1iZ9A6iqZaxXv71gZ_JV/view and prepare it with ready function: 
 
 ```{r eval=F}
-data <- read.csv("Data/irmik_lex.csv", encoding = "UTF-8")
-names(data)[names(data) == 'Płeć'] <- 'Plec' #Polish symbols causes some problems later when preparing data
+data <- read.csv("Data/irmik_lex.csv") #, encoding = "UTF-8")
+# names(data)[names(data) == 'Płeć'] <- 'Plec' #Polish symbols causes some problems later when preparing data
 prepare_data(data, "G", F)
 rm(d)
 ```

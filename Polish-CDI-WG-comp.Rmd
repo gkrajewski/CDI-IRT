@@ -1,0 +1,432 @@
+---
+title: "Polish CDI:WG comprehension analysis"
+author: "Grzegorz Krajewski"
+date: "12 10 2023"
+output: pdf_document
+---
+
+**Based on P. Król's excellent work :)**
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", dev = "png")
+#                      dev.args = list(encoding = "ISOLatin2"))
+```
+
+As a preparation we first load required libraries and functions:
+
+```{r libraries, warning=FALSE, message=FALSE, echo=FALSE}
+library(beepr)
+library(plyr) # We need it for laply()
+library(tidyverse) # We use it to process the data from the csv
+library(mirt)
+library(mirtCAT)
+library(parallel)
+library(ggpubr)
+source(paste0(getwd(),"/Functions_new/simulations.R"))
+source(paste0(getwd(),"/Functions_new/prepare_data.R"))
+# source(paste0(getwd(),"/Functions/get_first_item_responses.R")) Not sure what we need it for
+source(paste0(getwd(),"/Functions_new/fit_models.R"))
+source(paste0(getwd(),"/Functions_new/prepare_input_files.R"))
+source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
+```
+
+# Data preparation
+
+We import responses, items, and participant data (demo: age & sex) from local files
+(non-wordbank format) using an old idiosyncratic function, and pick the *comprehension* data.
+
+It takes some time, mostly because of age in days calculations (not needed currently).
+
+```{r data}
+# We use idiosyncratic data format and a peculiar function to process it:
+data <- read.csv("Data/irmik_lex.csv")
+prepare_data(data, "G", F)
+
+responses_demo %>% rowwise() %>%
+  mutate(comprehension = sum(c_across(starts_with("item")))) %>%
+  select(! starts_with("item")) -> scores
+
+if_else(scores$sex == "dziewczynka", "girl",
+        if_else(scores$sex == "chłopiec", "boy", scores$sex)) -> scores$sex
+```
+
+We prepare the responses matrix
+(eliminating all 0's and all 1's items).
+
+Mirt documentation suggests however removing items with difficulties > .95 and < .05.
+**Check and explore in the future.**
+
+```{r response_matrix}
+responses_demo %>% summarise(across(starts_with("item"), var)) %>%
+  select(where(~ .x > 0)) -> items_selected
+
+responses <- as.matrix(select(responses_demo, colnames(items_selected)))
+print(paste0("There are ", nrow(responses), " parents, ", ncol(responses),
+             " items (out of ", nrow(cdi), ") with non-zero variance, and ",
+             length(which(is.na(responses))), " missing responses."))
+```
+
+```{r non_zero_variance_items}
+cdi %>% filter(item_id %in% str_extract(colnames(responses), "[0-9]+")) -> cdi
+```
+
+# Model creation
+
+For the model creation
+we first decide on the optimal number of quadrature points.
+We do it iteratively by fitting models with increasing numbers and
+comparing their fit. We start with the default and increase it in
+a number of arbitrary, but hopefully not unreasonable, steps.
+
+We also compare the parameter estimates for the first item,
+just out of curosity: as the goodness of fit stabilises, so
+should the estimates.
+
+We save the relevant statistics to a file for future use.
+
+*Calculations may take some time! Switch eval on only if you really need to recalculate.*
+
+```{r quadpts_comp, eval=FALSE}
+quadpts <- quadpts_comp(responses, quadpts = c(61, 151, 301, 451, 601, 751), NCYCLES = 100000,
+             output_file = "Data/polish_wg_comp_quadpts.RData")
+```
+
+We load the comparison of model fits for different numbers of quadrature points
+from a file. Here they are:
+
+```{r quadpts_comp1}
+load("Data/polish_wg_comp_quadpts.RData")
+quadpts[1:3,]
+```
+
+And here are the parameter estimates for the first item:
+
+```{r quadpts_comp2}
+sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
+```
+
+Based on the above we set the number of quadrature points to `r unlist(quadpts[1, 4])`.
+This is when both the goodness of fit and the two estimates
+(seem to more or less) stabilise. We don't apply any clear criteria here though.
+
+```{r quadpts_set}
+quadtp <- unlist(quadpts[1, 4])
+```
+
+We then iteratively fit the model and remove any misfits until we have fits for all items.
+We save the model to a file to save time in the future.
+
+*It may take some time!*
+
+If you want to refit the model, switch the eval on.
+
+```{r misfits_removal, eval=FALSE}
+model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
+                          output_file = "Data/polish_wg_comp.RData")
+```
+
+We load the model from a file and print a basic summary:
+
+```{r model_summary}
+load("Data/polish_wg_comp.RData")
+mod <- model[[1]]
+items_removed <- model[[2]]
+rm(model) # to save space
+
+mod
+```
+
+## Items fit
+
+`r length(items_removed)` items were misfits in the process of model fitting.
+
+```{r items_removed_list}
+cdi %>% filter(item_id %in% str_extract(items_removed, "[0-9]+"))
+```
+
+If there are any, we remove them from the responses matrix and the item list.
+
+```{r items_remove}
+cdi %>% filter(! item_id %in% str_extract(items_removed, "[0-9]+")) -> cdi
+if(length(items_removed)) responses[, - as.numeric(str_extract(items_removed, "[0-9]+"))] -> responses
+```
+
+## Local dependence
+
+*Check and explore the following code in the future (also compare with Kachergis et al., 2022)*
+
+```{r local_dependence, eval=FALSE}
+# I can't make the following code hide the results...
+residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
+save(residuals, file = "Data/polish_wg_comp_residuals.RData")
+```
+
+```{r local_dependence_histogram}
+load("Data/polish_wg_comp_residuals.RData")
+residuals_up <- residuals
+residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
+hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
+```
+
+```{r local_dependence_summary}
+summary(as.vector(residuals_up))[-7]
+# -7 to avoid reporting NAs, which would be confusing as lower triangle is filled with them
+```
+
+To display the most highly mutually dependent items
+we use V > .3 as the threshold:
+
+```{r local_dependence_high}
+indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
+data.frame(item1 = cdi[indexes[, 1], "item_definition"],
+           item2 = cdi[indexes[, 2], "item_definition"], CramersV = residuals_up[indexes])
+```
+
+There are a few but following Kachergis et al. we set the threshold for removing items to V > .5
+and we remove the following items:
+
+```{r local_dependence_remove}
+indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
+data.frame(item1 = cdi[indexes[, 1], "item_definition"],
+           item2 = cdi[indexes[, 2], "item_definition"], CramersV = residuals_up[indexes])
+unique(as.vector(indexes)) -> items_to_remove_ids
+if(length(items_to_remove_ids)) {
+  responses[, -items_to_remove_ids] -> responses
+  cdi[-items_to_remove_ids,] -> cdi
+}
+```
+
+
+# Model exploration
+
+## IRT items parameteres
+
+```{r item_parameters}
+params_IRT <- as.data.frame(coef(mod, simplify = TRUE, IRTpars = TRUE)$items)[1:2]
+cdi <- cbind(params_IRT, cdi)
+```
+
+Scatterplot of difficulty by discrimination
+(*we add categories as colours*):
+
+```{r item_parameters_plot, fig.width=12, fig.height=8}
+ggplot(cdi, aes(b, a, label=item_definition, colour=category)) +
+# ggplot(cdi, aes(b, a, label=item_definition)) +
+  geom_text(check_overlap = T) +
+  geom_point(alpha = 0.3) +
+  xlab("Difficulty") +
+  ylab("Discrimination") +
+  labs(colour = "Category") +
+  labs(title = "Polish CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "grey"),
+  legend.position = "top"
+)
+```
+
+## Ability vs. raw scores
+
+We estimate ability levels for children from the sample based on the model.
+
+```{r ability}
+scores <- cbind(scores, fscores(mod, method = "MAP", full.scores.SE = TRUE))
+```
+
+*No failed convergence for any item but...
+in some datasets there is. Does it have something to do with
+the chosen MAP method?*
+
+Plot the estimated ability level against raw scores:
+
+```{r ability_scores_plot, fig.width=12, fig.height=8}
+ggplot(scores, aes(comprehension, F1)) +
+  geom_point() +
+  ylab("Ability level (theta)") +
+  xlab("Raw score (sum of checked items)") +
+  labs(title = "Polish CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+)
+```
+
+The scatterplot above shows that IRT estimates get "normalised",
+compared to raw scores, as can be seen on the following histograms
+(flat distribution for raw scores vs. bell-like distribution for *theta* estimates).
+
+```{r, eval=FALSE}
+# Should be in two separate chunks perhaps?
+hist(scores$comprehension, xlab = "Raw sums", main = "")
+hist(scores$F1, xlab = "Estimated ability levels", main = "")
+```
+
+
+## Ability vs. SE
+
+Plot the ability level against SE:
+
+```{r ability_se_plot, fig.width=12, fig.height=8}
+ggplot(scores, aes(F1, SE_F1)) +
+  geom_point(alpha = 0.3) +
+  xlab("Ability level (theta)") +
+  ylab("Standard error (SE)") +
+  labs(title = "Polish CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+)
+```
+
+The scatterplot above shows increasing errors at both extremes of the ability level.
+Perhaps due to floor and ceiling effects. Errors higher than 0.1 highly unfrequent though:
+
+```{r se_histogram, fig.width=12, fig.height=8}
+hist(scores$SE_F1, main = "Polish CDI:WG Comprehension", sub = "Histogram of SE", xlab = "SE")
+```
+
+## SE and ability level vs. age
+
+The graph below shows that higher error rates are at and close to age range limits
+(which is sort of obvious, given the relation between theta and age).
+But it also shows that some outliers are at every age
+(though in the middle they are not as high).
+
+```{r se_age_plot, fig.width=12, fig.height=8}
+ggplot(data.frame(age = as.factor(scores$age), SE = scores$SE_F1), aes(age, SE)) +
+  geom_boxplot() +
+  xlab("Age (months)") +
+  ylab("Standard error of ability estimations") +
+  labs(title = "Polish CDI:WG Comprehension") +
+  theme(
+  panel.background = element_rect(fill = NA),
+  panel.grid.major = element_line(colour = "lightgrey"),
+  text = element_text(size=16)
+  )
+```
+
+So let's see the relation between ability level and age (and first between raw scores and age).
+We add SE as colour.
+
+```{r score_age_plot, fig.width=12, fig.height=8}
+ggplot(scores) +
+  geom_point(aes(age, comprehension))
+ggplot(scores) +
+  geom_point(aes(age, F1, col = SE_F1)) +
+  scale_fill_gradient(low="green", high="red", aesthetics = "col") +
+  labs(y = "ability level", col = "SE")
+```
+
+
+# Simulations
+
+```{r prepare_sim}
+params <- as.data.frame(coef(mod, simplify = T)$items)[1:2]
+mo <- generate.mirt_object(params, '2PL')
+cl <- makeCluster(detectCores())
+```
+
+## Whole pool for everyone
+
+```{r sim_all, eval=FALSE}
+message(paste("Starting simulation @ ", Sys.time()))
+results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
+                       local_pattern = responses, cl = cl, design = list(min_items = ncol(responses)))
+# results_all1 <- mirtCAT(mo = mod, method = "MAP", criteria = "MI", start_item = "MI",
+#                       local_pattern = responses_r, cl = cl, design = list(min_items = ncol(responses_r)))
+save(results_all, file = "Data/polish_wg_comp_sim_all.Rdata")
+message(paste("Finished @ ", Sys.time()))
+beep()
+```
+
+
+```{r sim_all_report}
+load("Data/polish_wg_comp_sim_all.Rdata")
+report_sim_results(results_all, select(scores, contains("F1")))
+```
+
+Based on the whole pool simulation we can examine decreasing average SE with each item
+(we plot it up to 100 items: no need for more).
+
+```{r se_length_plot, fig.width=12, fig.height=8, warning=FALSE}
+SE_history <- laply(results_all, function(x) x$thetas_SE_history)
+meanSE_item <- as.data.frame(colMeans(SE_history))
+meanSE_item$item <- row.names(meanSE_item)
+colnames(meanSE_item) <- c("mean_SE", "item")
+meanSE_item$item <- as.numeric(meanSE_item$item)
+
+ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
+  xlab ("Test length") +
+  ylab ("Mean SE") +
+  labs(title = "Polish CDI:WG Comp") +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  ) + 
+  scale_y_continuous(breaks = c(0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1)) + 
+  scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
+```
+
+## SE = 0.1 stop criterion
+
+The plot above shows that we need quite a number of items (ca. 80) to reach SE=.1 on average.
+Let's try a simulation.
+
+```{r se1, eval=FALSE}
+results_SE1 <- sim_se(0.1, file = "Data/polish_wg_comp_sim_se1.RData")
+```
+
+
+```{r se1_report}
+load("Data/polish_wg_comp_sim_se1.Rdata")
+results_SE1 <- results
+report_sim_results(results_SE1, select(scores, contains("F1")))
+```
+
+
+```{r se1_plot, fig.width=12, fig.height=8}
+plot_length(results_SE1, "Polish CDI:WG Comp", 0.1)
+```
+
+## SE = 0.15 stop criterion
+
+```{r se15, eval=FALSE}
+results_SE15 <- sim_se(0.15, file = "Data/polish_wg_comp_sim_se15.RData")
+```
+
+
+```{r se15_report}
+load("Data/polish_wg_comp_sim_se15.Rdata")
+results_SE15 <- results
+report_sim_results(results_SE15, select(scores, contains("F1")))
+```
+
+
+```{r se15_plot, fig.width=12, fig.height=8}
+plot_length(results_SE15, "Polish CDI:WG Comp", 0.15)
+```
+
+
+## Different start thetas
+
+```{r different_start_thetas, eval=FALSE, message=FALSE, echo=FALSE}
+start_thetas <- get_start_thetas(scores, "age", "sex")
+fscores_aggr <- start_thetas[[1]]
+start_thetas <- start_thetas[[2]]
+```
+
+TODO: Simulations with different start thetas when stop criterion would be specified
+
+# Input files preparation
+
+```{r eval=FALSE}
+prepare_input_files(params, cdi$item_definition, fscores_aggr,
+                    question = "CATEGORY LABEL here", group = "comp", id = cdi$item_id,
+                    file1 = "items-Polish-WG-comp.csv", file2 = "startThetas-Polish-WG-comp.csv")
+```
+
+
+
