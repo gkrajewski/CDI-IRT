@@ -48,6 +48,11 @@ responses_demo %>% rowwise() %>%
 
 if_else(scores$sex == "dziewczynka", "girl",
         if_else(scores$sex == "chłopiec", "boy", scores$sex)) -> scores$sex
+
+# To get item list together with English glosses:
+read_csv2("Data/pl_items.csv") %>% filter(type == "word") %>%
+     select(definition, uni_lemma) %>% rownames_to_column("item_id") %>%
+     rename(item_definition = definition, english_gloss = uni_lemma) -> cdi
 ```
 
 We prepare the responses matrix
@@ -210,8 +215,8 @@ Scatterplot of difficulty by discrimination
 (*we add categories as colours*):
 
 ```{r item_parameters_plot, fig.width=12, fig.height=8}
-ggplot(cdi, aes(b, a, label=item_definition, colour=category)) +
-# ggplot(cdi, aes(b, a, label=item_definition)) +
+# ggplot(cdi, aes(b, a, label=item_definition, colour=category)) +
+ggplot(cdi, aes(b, a, label=english_gloss)) +
   geom_text(alpha = 0.7, size=3) +
   xlim(-5, 3) +
   ylim(.5, 5.5) +
