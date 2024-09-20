@@ -1,4 +1,3 @@
-.gitignore
 Data/*
 .Rhistory
 .DS_Store
@@ -6,3 +5,4 @@ Data/*
 *.Rproj
 .RData
 *.pdf
+*.png
