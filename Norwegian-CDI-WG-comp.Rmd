@@ -262,12 +262,14 @@ also, if we had categories we could add them as colours*):
 ```{r item_parameters_plot, fig.width=12, fig.height=8}
 # ggplot(params_cdi, aes(b, a, colour=category, label=position)) +
 ggplot(cdi, aes(b, a, label=english_gloss)) +
-  geom_text(check_overlap = T) +
-  geom_point(alpha = 0.3) +
+  geom_text(alpha = 0.7, size=3) +
+#  geom_point(alpha = 0.3) +
+  xlim(-5, 3) +
+  ylim(.5, 5.5) +
   xlab("Difficulty") +
   ylab("Discrimination") +
 #  labs(colour = "Category") +
-  labs(title = "Norwegian CDI:WG Comprehension") +
+#  labs(title = "Norwegian CDI:WG Comprehension") +
   theme(
   panel.background = element_rect(fill = NA),
   panel.grid.major = element_line(colour = "grey"),
@@ -293,7 +295,8 @@ ggplot(scores, aes(comprehension, F1)) +
   geom_point() +
   ylab("Ability level (theta)") +
   xlab("Raw score (sum of checked items)") +
-  labs(title = "Norwegian CDI:WG Comprehension") +
+  ylim(-4, 4) +
+#  labs(title = "Norwegian CDI:WG Comprehension") +
   theme(
   panel.background = element_rect(fill = NA),
   panel.grid.major = element_line(colour = "lightgrey"),
@@ -365,7 +368,8 @@ ggplot(scores) +
 ggplot(scores) +
   geom_point(aes(age, F1, col = SE_F1)) +
   scale_fill_gradient(low="green", high="red", aesthetics = "col") +
-  labs(y = "ability level", col = "SE")
+  labs(y = "ability level", col = "SE") +
+  ylim(-4, 4)
 ```
 
 
