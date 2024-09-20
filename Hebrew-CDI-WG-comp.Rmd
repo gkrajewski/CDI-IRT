@@ -319,6 +319,13 @@ Perhaps due to floor and ceiling effects. Errors higher than 0.1 highly unfreque
 hist(scores$SE_F1, main = "Histogram of SE", xlab = "SE")
 ```
 
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r ability_se_export, eval=FALSE}
+write_csv(scores, "Data/scores_hebrew.csv")
+```
+
+
 ## SE and ability level vs. age
 
 The graph below shows that higher error rates are at and close to age range limits
@@ -402,6 +409,13 @@ ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
   scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
 # Warning means we skip 324 items (because we plot the first 100 only).
 ```
+
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r mean_se_export, eval=FALSE}
+write_csv(meanSE_item, "Data/meanSE_hebrew.csv")
+```
+
 
 ## SE = 0.1 stop criterion
 
