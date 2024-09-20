@@ -52,5 +52,6 @@ plot_length <- function(results, cdi_name, se) {
     geom_text(aes(label = Freq), vjust = -0.3, size=6) +
     labs(title = paste0(cdi_name, ": SE = ", se, " stop criterion")) +
     theme_pubclean() +
+    ylim(0, 100) +
     theme(text = element_text(size=16))
 }
