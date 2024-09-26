@@ -306,7 +306,7 @@ if(length(items_to_remove_ids)) {
 
 # Model exploration
 
-## IRT items parameteres
+## IRT items parameters
 
 ```{r item_parameters}
 params_IRT <- as.data.frame(coef(mod, simplify = TRUE, IRTpars = TRUE)$items)[1:2]
@@ -367,7 +367,7 @@ compared to raw scores, as can be seen on the following histograms
 
 ```{r, eval=FALSE}
 # Should be in two separate chunks perhaps?
-hist(scores$comprehension, xlab = "Raw sums", main = "")
+hist(scores$score, xlab = "Raw sums", main = "")
 hist(scores$F1, xlab = "Estimated ability levels", main = "")
 ```
 
@@ -393,13 +393,13 @@ The scatterplot above shows increasing errors at both extremes of the ability le
 Perhaps due to floor and ceiling effects. Errors higher than 0.1 highly unfrequent though:
 
 ```{r se_histogram, fig.width=12, fig.height=8}
-hist(scores$SE_F1, main = "Norwegian CDI:WG Comprehension", sub = "Histogram of SE", xlab = "SE")
+hist(scores$SE_F1, main = "Norwegian CDI:WS", sub = "Histogram of SE", xlab = "SE")
 ```
 
 We can export the data for crosslinguistic plotting/analysing.
 
 ```{r ability_se_export, eval=FALSE}
-write_csv(scores, "Data/scores_norwegian.csv")
+write_csv(scores, "Data/scores_Norwegian-WS.csv")
 ```
 
 
@@ -415,7 +415,7 @@ ggplot(data.frame(age = as.factor(scores$age), SE = scores$SE_F1), aes(age, SE))
   geom_boxplot() +
   xlab("Age (months)") +
   ylab("Standard error of ability estimations") +
-  labs(title = "Norwegian CDI:WG Comprehension") +
+  labs(title = "Norwegian CDI:WS") +
   theme(
   panel.background = element_rect(fill = NA),
   panel.grid.major = element_line(colour = "lightgrey"),
@@ -428,7 +428,7 @@ We add SE as colour.
 
 ```{r score_age_plot, fig.width=12, fig.height=8}
 ggplot(scores) +
-  geom_point(aes(age, comprehension))
+  geom_point(aes(age, score))
 ggplot(scores) +
   geom_point(aes(age, F1, col = SE_F1)) +
   scale_fill_gradient(low="green", high="red", aesthetics = "col") +
