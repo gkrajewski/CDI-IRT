@@ -28,13 +28,20 @@ source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
 
 # Data preparation
 
-We import responses, items, and participant data (demo: age & sex) from local files,
-pick the *comprehension* data, exclude longitudinal data,
+There are three key objects needed for all the analyses done and presented here:
+
+1. `responses` matrix (self explanatory)
+2. `cdi` data frame (item information)
+3. `scores` data frame (participant information: raw scores $ demographics)
+
+We import responses, items, and participant data from local files,
+which in turn are downloaded from WordBank, exclude non norming (longitudinal?) data,
 and perform a check (our sums equal to imported scores).
 
 ```{r data}
 # We get responses and item data:
-# wordbankr::get_instrument_data("Norwegian", "WS", administration_info=T, item_info=T) %>% filter(is_norming)
+# wordbankr::get_instrument_data("[language]", "WG|WS", *_info=T) %>% filter(is_norming)
+# 
 # More item data available, if needed: modify select():
 read_csv("Data/norwegian_wb_ws.csv") %>%
   filter(item_kind == "word") %>%
@@ -43,22 +50,27 @@ read_csv("Data/norwegian_wb_ws.csv") %>%
 # We get items (Norwegian, English glosses, and IDs):
 responses %>% distinct(item_definition, english_gloss, item_id) -> cdi
 
-# We recode responses:
-if_else(is.na(responses$value), 0, 1) -> responses$value
+# We recode responses into zeroes and ones:
+if_else(is.na(responses$value) | responses$value == "", 0, 1) -> responses$value
 
-# We get scores and demo data. More demo data available, if needed: modify select():
+# We get scores and demo data.
+# wordbankr::get_administration_data("[language]", include_*=T)
+# 
+# More demo data available, if needed: modify select():
 read_csv("Data/norwegian_wb_participants.csv") %>%
   filter(form == "WS" & is_norming) %>%
-  select(child_id, age, sex, comprehension) -> scores
+  select(child_id, age, sex, production) -> scores
+
+# We recode sex (just because we used girl/boy before):
 if_else(scores$sex == "Female", "girl",
         if_else(scores$sex == "Male", "boy", scores$sex)) -> scores$sex
 
 # We don't need to filter out longitudinal data, as we used is_norming condition.
+# Otherwise some filtering might be needed here.
 
 # We check the sums (should return zero tibble):
 responses %>% group_by(child_id) %>% summarise(score = sum(value)) %>%
-  full_join(scores) %>% filter(score != comprehension)
-
+  full_join(scores) %>% filter(score != production)
 ```
 
 We prepare the responses matrix
@@ -77,14 +89,13 @@ responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>
      select(1, last_col()) %>% left_join(scores) %>% select(- last_col()) -> scores
 
 responses <- as.matrix(select(responses, starts_with("item_")))
+cdi %>% filter(item_id %in% colnames(responses)) -> cdi
+
 print(paste0("There are ", nrow(responses), " parents, ", ncol(responses),
              " items (out of ", nrow(cdi), ") with non-zero variance, and ",
              length(which(is.na(responses))), " missing responses."))
 ```
 
-```{r non_zero_variance_items, eval=FALSE}
-cdi %>% filter(item_id %in% colnames(responses)) -> cdi
-```
 
 # Model creation
 
@@ -94,7 +105,6 @@ With a set number of quadrature points we proceed to fitting the model iterative
 first removing any items without a fit,
 and then removing all items showing high local dependence and fitting the model again.
 We continue with removing misfits and locally dependent items if needed.
-
 
 ## Quadrature points
 
