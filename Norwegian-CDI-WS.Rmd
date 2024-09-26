@@ -70,6 +70,12 @@ Mirt documentation suggests however removing items with diffulties > .95 and < .
 ```{r response_matrix}
 responses %>% group_by(item_id) %>% filter(var(value) > 0) %>%
   pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
+
+# We recalculate scores here to maintain the response matrix row order
+# (which seems to be messed up with in the process of pivoting above):
+responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>%
+     select(1, last_col()) %>% left_join(scores) %>% select(- last_col()) -> scores
+
 responses <- as.matrix(select(responses, starts_with("item_")))
 print(paste0("There are ", nrow(responses), " parents, ", ncol(responses),
              " items (out of ", nrow(cdi), ") with non-zero variance, and ",
@@ -288,12 +294,11 @@ the chosen MAP method?*
 Plot the estimated ability level against raw scores:
 
 ```{r ability_scores_plot, fig.width=12, fig.height=8}
-ggplot(scores, aes(comprehension, F1)) +
+ggplot(scores, aes(score, F1)) +
   geom_point() +
   ylab("Ability level (theta)") +
   xlab("Raw score (sum of checked items)") +
   ylim(-4, 4) +
-#  labs(title = "Norwegian CDI:WG Comprehension") +
   theme(
   panel.background = element_rect(fill = NA),
   panel.grid.major = element_line(colour = "lightgrey"),
