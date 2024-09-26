@@ -89,8 +89,17 @@ cdi %>% filter(item_id %in% colnames(responses)) -> cdi
 # Model creation
 
 For the model creation
-we first decide on the optimal number of quadrature points.
-We do it iteratively by fitting models with increasing numbers and
+we start by deciding on the optimal number of quadrature points.
+With a set number of quadrature points we proceed to fitting the model iteratively,
+first removing any items without a fit,
+and then removing all items showing high local dependence and fitting the model again.
+We continue with removing misfits and locally dependent items if needed.
+
+
+## Quadrature points
+
+We decide on the number of quadrature points iteratively
+by fitting models with increasing numbers and
 comparing their fit. We start with the default and increase it in
 a number of arbitrary, but hopefully not unreasonable, steps.
 
@@ -102,15 +111,14 @@ should the estimates.
 
 ```{r quadpts_comp, eval=FALSE}
 quadpts <- quadpts_comp(responses, quadpts = c(61, 151, 301, 451, 601, 751), NCYCLES = 100000,
-             output_file = "Data/norwegian_wg_comp_quadpts.RData")
+             output_file = "Data/norwegian_ws_quadpts.RData")
 ```
 
 We load the comparison of model fits for different numbers of quadrature points
 from a file. Here there are:
 
 ```{r quadpts_comp1}
-load("Data/norwegian_wg_comp_quadpts.RData")
-output -> quadpts # temporarily...
+load("Data/norwegian_ws_quadpts.RData")
 quadpts[1:3,]
 ```
 
@@ -120,13 +128,15 @@ And here are the parameter estimates for the first item:
 sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
 ```
 
-Based on the above we set the number of quadrature points to 451.
-
 ```{r quadpts_set}
-quadtp <- 451
+quadtp <- 301
 ```
 
-We then iteratively fit the model and remove any misfits until we have fits for all items.
+Based on the above we set the number of quadrature points to `r quadtp`.
+
+## Model fitting, round 1
+
+We iteratively fit the model and remove any misfits until we have fits for all items.
 
 *It may take some time!*
 
@@ -134,59 +144,51 @@ We save the model to a file to save time in the future
 (if you want to refit the model, switch the eval on):
 
 ```{r misfits_removal, eval=FALSE}
-output <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                          output_file = "Data/norwegian_wg_comp.RData")
+model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
+                          output_file = "Data/norwegian_ws.RData")
 ```
 
-We load the model from a file (comment out if just fitted above)
-and print a basic summary:
+We load the model from a file and print a basic summary:
 
 ```{r model_summary}
-load("Data/norwegian_wg_comp.RData")
-mod <- output[[1]]
-items_removed <- output[[2]]
-rm(output) # to save space
+load("Data/norwegian_ws.RData")
+mod <- model[[1]]
+items_removed <- model[[2]]
+rm(model) # to save space
 
 mod
 ```
 
-## Items fit
+### Items fit
 
-No items were misfits in the process of model fitting.
+`r length(unlist(items_removed))` items were misfits in the process of model fitting and
+were removed in `r length(items_removed)` iterations before a model with no misfits was obtained.
+
+```{r items_removed_list}
+cdi %>% filter(item_id %in% unlist(items_removed))
+```
 
 ```{r items_removed}
-items_removed
-```
-
-No need to remove anything from the response matrix or the list of items.
-
-```{r cdi_items_removed}
-# Code below most certainly needs updating!
-items_to_remove_ids <- as.numeric(laply(unlist(items_removed), function(x) substr(x, 5, nchar(x))))
-cdi[which(cdi$number.ws %in% items_to_remove_ids), ]
-```
-
-```{r items_removed2}
-# Code below most certainly needs updating (first part)!
-if(length(items_to_remove_ids)) {
+if(length(items_removed)) {
   responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
-  cdi <- cdi[-which(cdi$number.ws %in% items_to_remove_ids), ]
+  cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
   if (nrow(cdi) == ncol(responses)) print(paste0(ncol(responses), " items left after removal."))
 }
 ```
 
-## Local dependence
+
+### Local dependence
 
 *Check and explore the following code in the future (also compare with Kachergis et al., 2022)*
 
 ```{r local_dependence, eval=FALSE}
 # I can't make the following code hide the results...
 residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
-save(residuals, file = "Data/norwegian_wg_comp_residuals.RData")
+save(residuals, file = "Data/norwegian_ws_residuals.RData")
 ```
 
 ```{r local_dependence_histogram}
-load("Data/norwegian_wg_comp_residuals.RData")
+load("Data/norwegian_ws_residuals.RData")
 residuals_up <- residuals
 residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
 hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
@@ -202,8 +204,8 @@ we use V > .3 as the threshold:
 
 ```{r local_dependence_high}
 indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
-data.frame(item1 = pull(cdi[indexes[, 1], "item_definition"]),
-           item2 = pull(cdi[indexes[, 2], "item_definition"]), CramersV = residuals_up[indexes])
+data.frame(item1 = pull(cdi[indexes[, 1], "english_gloss"]),
+           item2 = pull(cdi[indexes[, 2], "english_gloss"]), CramersV = residuals_up[indexes])
 ```
 
 There are a few but following Kachergis et al. we set the threshold for removing items to V > .5
@@ -214,39 +216,92 @@ indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
 data.frame(item1 = pull(cdi[indexes[, 1], "item_definition"]),
            item2 = pull(cdi[indexes[, 2], "item_definition"]), CramersV = residuals_up[indexes])
 unique(as.vector(indexes)) -> items_to_remove_ids
-responses[, -items_to_remove_ids] -> responses
-cdi[-items_to_remove_ids,] -> cdi
+if(length(items_to_remove_ids)) {
+     responses[, -items_to_remove_ids] -> responses
+     cdi[-items_to_remove_ids,] -> cdi
+}
 ```
+
+
+## Model fitting, round 2
 
 Then we repeat the iterative model fit with misfits removal.
 
 ```{r misfits_removal_2, eval=FALSE}
-output <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                          output_file = "Data/norwegian_wg_comp_2.RData")
+model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
+                          output_file = "Data/norwegian_ws_2.RData")
 ```
 
 We load the model from a file (comment out if just fitted above)
 and print a basic summary:
 
 ```{r model_summary_2}
-load("Data/norwegian_wg_comp_2.RData")
-mod <- output[[1]]
-items_removed <- output[[2]]
-rm(output) # to save space
+load("Data/norwegian_ws_2.RData")
+mod <- model[[1]]
+items_removed <- model[[2]]
+rm(model) # to save space
 
 mod
 ```
 
 
-There is one misfit to remove:
+### Items fit
 
-```{r items_removed_2}
-cdi[cdi$item_id %in% items_removed, "item_definition"]
-responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
-cdi <- cdi[! cdi$item_id %in% items_removed, ]
+`r length(unlist(items_removed))` items were misfits in the process of model fitting and
+were removed in `r length(items_removed)` iterations before a model with no misfits was obtained.
+
+```{r items_removed_list_2}
+cdi %>% filter(item_id %in% unlist(items_removed))
 ```
 
-*Seems like we don't need to repeat the local dependence procedure but better check it!*
+```{r items_removed_2}
+if(length(items_removed)) {
+  responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
+  cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
+  if (nrow(cdi) == ncol(responses)) print(paste0(ncol(responses), " items left after removal."))
+}
+```
+
+
+### Local dependence
+
+*Seems like we don't need to repeat the local dependence procedure.*
+*Cramer's Vs remain (almost)
+
+```{r local_dependence_2, eval=FALSE}
+# I can't make the following code hide the results...
+residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
+save(residuals, file = "Data/norwegian_ws_residuals_2.RData")
+```
+
+```{r local_dependence_histogram_2, eval=FALSE}
+load("Data/norwegian_ws_residuals_2.RData")
+residuals_up <- residuals
+residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
+hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
+```
+
+```{r local_dependence_summary_2, eval=FALSE}
+summary(as.vector(residuals_up))[-7]
+# -7 to avoid reporting NAs, which would be confusing as lower triangle is filled with them
+```
+
+```{r local_dependence_high_2, eval=FALSE}
+indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
+data.frame(item1 = pull(cdi[indexes[, 1], "english_gloss"]),
+           item2 = pull(cdi[indexes[, 2], "english_gloss"]), CramersV = residuals_up[indexes])
+```
+
+```{r local_dependence_remove_2, eval=FALSE}
+indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
+data.frame(item1 = pull(cdi[indexes[, 1], "item_definition"]),
+           item2 = pull(cdi[indexes[, 2], "item_definition"]), CramersV = residuals_up[indexes])
+unique(as.vector(indexes)) -> items_to_remove_ids
+if(length(items_to_remove_ids)) {
+     responses[, -items_to_remove_ids] -> responses
+     cdi[-items_to_remove_ids,] -> cdi
+}
+```
 
 
 # Model exploration
