@@ -76,7 +76,7 @@ responses %>% group_by(child_id) %>% summarise(score = sum(value)) %>%
 We prepare the responses matrix
 (eliminating all 0's and all 1's items).
 
-Mirt documentation suggests however removing items with diffulties > .95 and < .05.
+Mirt documentation suggests however removing items with difficulties > .95 and < .05.
 **Check and explore in the future.**
 
 ```{r response_matrix}
@@ -463,14 +463,14 @@ results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "M
                        local_pattern = responses, cl = cl, design = list(min_items = ncol(responses)))
 # results_all1 <- mirtCAT(mo = mod, method = "MAP", criteria = "MI", start_item = "MI",
 #                       local_pattern = responses_r, cl = cl, design = list(min_items = ncol(responses_r)))
-save(results_all, file = "Data/norwegian_wg_comp_sim_all.Rdata")
+save(results_all, file = "Data/norwegian_ws_sim_all.Rdata")
 message(paste("Finished @ ", Sys.time()))
 beep()
 ```
 
 
 ```{r sim_all_report}
-load("Data/norwegian_wg_comp_sim_all.Rdata")
+load("Data/norwegian_ws_sim_all.Rdata")
 report_sim_results(results_all, select(scores, contains("F1")))
 ```
 
@@ -487,7 +487,7 @@ meanSE_item$item <- as.numeric(meanSE_item$item)
 ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
   xlab ("Test length") +
   ylab ("Mean SE") +
-  labs(title = "Norwegian CDI:WG Comp") +
+  labs(title = "Norwegian CDI:WS") +
   theme(
     panel.background = element_rect(fill = NA),
     panel.grid.major = element_line(colour = "lightgrey"),
@@ -500,47 +500,47 @@ ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
 We can export the data for crosslinguistic plotting/analysing.
 
 ```{r mean_se_export, eval=FALSE}
-write_csv(meanSE_item, "Data/meanSE_norwegian.csv")
+write_csv(meanSE_item, "Data/meanSE_Norwegian-WS.csv")
 ```
 
 
 ## SE = 0.1 stop criterion
 
-The plot above shows that we need quite a number of items (ca. 80) to reach SE=.1 on average.
+The plot above shows that we need 30-40 items to reach SE=.1 on average.
 Let's try a simulation.
 
 ```{r se1, eval=FALSE}
-results_SE1 <- sim_se(0.1, file = "Data/norwegian_wg_comp_sim_se1.RData")
+results_SE1 <- sim_se(0.1, file = "Data/norwegian_ws_sim_se1.RData")
 ```
 
 
 ```{r se1_report}
-load("Data/norwegian_wg_comp_sim_se1.Rdata")
+load("Data/norwegian_ws_sim_se1.RData")
 results_SE1 <- results
 report_sim_results(results_SE1, select(scores, contains("F1")))
 ```
 
 
 ```{r se1_plot, fig.width=12, fig.height=8}
-plot_length(results_SE1, "Norwegian CDI:WG Comp", 0.1)
+plot_length(results_SE1, "Norwegian CDI:WS", 0.1)
 ```
 
 ## SE = 0.15 stop criterion
 
 ```{r se15, eval=FALSE}
-results_SE15 <- sim_se(0.15, file = "Data/norwegian_wg_comp_sim_se15.RData")
+results_SE15 <- sim_se(0.15, file = "Data/norwegian_ws_sim_se15.RData")
 ```
 
 
 ```{r se15_report}
-load("Data/norwegian_wg_comp_sim_se15.Rdata")
+load("Data/norwegian_ws_sim_se15.RData")
 results_SE15 <- results
 report_sim_results(results_SE15, select(scores, contains("F1")))
 ```
 
 
 ```{r se15_plot, fig.width=12, fig.height=8}
-plot_length(results_SE15, "Norwegian CDI:WG Comp", 0.15)
+plot_length(results_SE15, "Norwegian CDI:WS", 0.15)
 ```
 
 
@@ -559,7 +559,7 @@ TODO: Simulations with different start thetas when stop criterion would be speci
 ```{r eval=FALSE}
 prepare_input_files(params, cdi$item_definition, fscores_aggr,
                     question = "CATEGORY LABEL here", group = "comp", id = cdi$item_id,
-                    file1 = "items-Norwegian-WG-comp.csv", file2 = "startThetas-Norwegian-WG-comp.csv")
+                    file1 = "items-Norwegian-WS.csv", file2 = "startThetas-Norwegian-WS.csv")
 ```
 
 
