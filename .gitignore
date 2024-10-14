@@ -6,3 +6,4 @@ Data/*
 .RData
 *.pdf
 *.png
+*.csv
