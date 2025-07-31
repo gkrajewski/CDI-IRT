@@ -45,9 +45,9 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
   #
   # Parameters:
   # 1: results - simulation results (as returned by sim_se(), which is a wrapper for mirtCAT())
-  # 2: cdi_name - for the plot title: name of the CDI
-  # 3: se - for the plot title: SE threshold used as a stopping criterion in sim_se()
-  # 4: bin_width - (optional) defaults to 10 and last bin always equals to all items used while second to last always adjusts
+  # 2: cdi_name - for plot title: name of the CDI
+  # 3: se - for plot title: SE threshold used as a stopping criterion in sim_se()
+  # 4: bin_width - (optional) defaults to 10 (last bin always equals to all items used while second to last always adjusts)
   # 5: pfs - (optional) font size for percentages above bars
   # 6: xfs - (optional) font size for bin labels on X axis
   # 7: title - (optional) defaults to "cdi_name with stop criterion SE < se"
@@ -74,4 +74,11 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
     theme_pubclean() +
     ylim(0, 100) +
     theme(text = element_text(size=16), axis.text.x = element_text(size=xfs))
+}
+
+sim_length_distro_q <- function(results, q) {
+  tests_lengths <- laply(results, function(x) length(x$items_answered))
+  threshold <- quantile(tests_lengths, 1 - q)
+  print(threshold)
+  invisible(list(distro = tests_lengths, threshold = round(threshold)))
 }
