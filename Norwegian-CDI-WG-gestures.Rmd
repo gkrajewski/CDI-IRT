@@ -1,32 +1,66 @@
 ---
-title: "Norwegian CDI:WS analysis"
-author: "Grzegorz Krajewski"
-date: "20 09 2024"
+title: "Norwegian CDI:WG Gestures analysis"
 output: pdf_document
 ---
 
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.align = "center")
+knitr::opts_chunk$set(include = TRUE,
+                      echo = FALSE,
+                      eval = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = "center",
+                      fig.width = 6,
+                      fig.height = 4)
 ```
 
-As a preparation we first load required libraries and functions:
+# Setup
 
-```{r libraries, warning=FALSE, message=FALSE, echo=FALSE}
+Below are the settings for the analyses reported in this document.
+
+```{r settings, echo = TRUE}
+functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
+data_dir <- "Data"
+language <- "Norwegian"
+scale <- "WG Gestures" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
+```
+
+Plot titles, file names etc. are based on them.
+
+```{r analyses_setup}
+version <- strsplit(scale, " ")[[1]]
+subscale <- "Prod"
+if(length(version) > 1) substr(version[2], 1, 4) -> subscale
+version <- version[1]
+if(version == "WS") {
+  filename_prefix <- tolower(paste(language, version, sep="_"))
+} else {
+  filename_prefix <- tolower(paste(language, version, subscale, sep="_"))
+}
+filename_prefix <- paste(data_dir, filename_prefix, sep="/")
+filename_data <- paste(data_dir, tolower(paste(language, version, sep="_")), sep="/")
+```
+
+The following  libraries are loaded.
+
+```{r libraries, echo=TRUE, results='hide'}
 library(beepr)
-library(plyr) # We need it for laply()
-library(tidyverse) # We use it to process the data from the csv
+library(wordbankr)
+library(tidyverse)
 library(mirt)
 library(mirtCAT)
 library(parallel)
 library(ggpubr)
-source(paste0(getwd(),"/Functions_new/simulations.R"))
-# source(paste0(getwd(),"/Functions/get_first_item_responses.R")) Not sure what we need it for
-source(paste0(getwd(),"/Functions_new/fit_models.R"))
-source(paste0(getwd(),"/Functions_new/prepare_input_files.R"))
-source(paste0(getwd(),"/Functions_new/get_start_thetas.R"))
 ```
 
-# Data preparation
+Functions from `r paste0("`", functions_dir, "`")` directory are sourced.
+ 
+```{r functions}
+files <- list.files(path = functions_dir, pattern = "\\.R$", full.names = TRUE)
+for (f in files) source(f)
+```
+
 
 There are three key objects needed for all the analyses done and presented here:
 
