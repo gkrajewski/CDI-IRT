@@ -62,73 +62,116 @@ for (f in files) source(f)
 ```
 
 
-There are three key objects needed for all the analyses done and presented here:
+# Data preparation
 
-1. `responses` matrix (self explanatory)
-2. `cdi` data frame (item information)
-3. `scores` data frame (participant information: raw scores $ demographics)
+Data may be downloaded from the Wordbank database and saved locally
+for quicker access in the future. See and run the chunk below for that
+(modifying calls to `select()` if more data, demographics in particular, is needed)
 
-We import responses, items, and participant data from local files,
-which in turn are downloaded from WordBank, exclude non norming (longitudinal?) data,
-and perform a check (our sums equal to imported scores).
+```{r wordbank_download, eval=FALSE, echo=TRUE}
+# Get responses and item data:
+get_instrument_data(language, version,
+                    administration_info=TRUE,
+                    item_info=TRUE) %>%
+                    filter(is_norming) -> responses
+# More item data available, if needed -- modify select():
+responses %>%
+  select(child_id, item_id, item_definition, english_gloss, item_kind, value) %>%
+  write_csv(paste(filename_data, "responses.csv", sep="_"))
 
-```{r data}
-# We get responses and item data:
-# wordbankr::get_instrument_data("[language]", "WG|WS", *_info=T) %>% filter(is_norming)
-# 
-# More item data available, if needed: modify select():
-read_csv("Data/norwegian_wb_ws.csv") %>%
-  filter(item_kind == "word") %>%
-  select(child_id, item_id, item_definition, english_gloss, value) -> responses
+# Get demographics data:
+get_administration_data(language, version,
+                        include_demographic_info=TRUE,
+                        include_birth_info=TRUE,
+                        include_health_conditions=TRUE,
+                        include_language_exposure=TRUE,
+                        include_study_internal_id=TRUE) %>%
+                        filter(is_norming) -> participants
+# More demographics data available, if needed -- modify select():
+participants %>%
+  select(child_id, age, sex) %>%
+  write_csv(paste(filename_data, "participants.csv", sep="_"))
+```
 
-# We get items (Norwegian, English glosses, and IDs):
+There should be two *csv* files:
+`r paste(filename_data, "responses.csv", sep="_")` and
+`r paste(filename_data, "participants.csv", sep="_")`.
+
+The *responses* file is used to extract the list of `r scale` items
+(with their definitions and English glosses, if available).
+Relevant responses are recoded as 0's and 1's appropriately and
+children with at least one `NA` are excluded.
+
+The *participants* file contains demographic data (*age* and *sex* in particular).
+
+```{r data_import}
+# Read csv files:
+read_csv(paste(filename_data, "participants.csv", sep="_")) -> participants
+read_csv(paste(filename_data, "responses.csv", sep="_")) -> responses
+
+# Extract instrument contents (item definitions, English glosses, and IDs):
 responses %>% distinct(item_definition, english_gloss, item_id) -> cdi
 
-# We recode responses into zeroes and ones:
-if_else(is.na(responses$value) | responses$value == "", 0, 1) -> responses$value
+# Filter & recode responses based on scale:
+if(subscale == "Gest") {
+  responses %>% filter(str_starts(item_kind, "gestures")) %>%
+      mutate(value = case_match(value,
+                                c("not yet", "no") ~ 0,
+                                c("often", "sometimes", "yes") ~ 1,
+                                .default = NA)) -> responses
+} else {
+  if(subscale == "Prod") {
+    positive <- c("produces", "understands")
+  } else {
+    positive <- "understands"
+  }
+  responses <- filter(responses, item_kind == "word") %>%
+      mutate(value = case_match(value,
+                                positive ~ 1,
+                                NA ~ NA,
+                                .default = 0)) -> responses
+}
 
-# We get scores and demo data.
-# wordbankr::get_administration_data("[language]", include_*=T)
-# 
-# More demo data available, if needed: modify select():
-read_csv("Data/norwegian_wb_participants.csv") %>%
-  filter(form == "WS" & is_norming) %>%
-  select(child_id, age, sex, production) -> scores
-
-# We recode sex (just because we used girl/boy before):
-if_else(scores$sex == "Female", "girl",
-        if_else(scores$sex == "Male", "boy", scores$sex)) -> scores$sex
-
-# We don't need to filter out longitudinal data, as we used is_norming condition.
-# Otherwise some filtering might be needed here.
-
-# We check the sums (should return zero tibble):
-responses %>% group_by(child_id) %>% summarise(score = sum(value)) %>%
-  full_join(scores) %>% filter(score != production)
+# Drop children with at least one NA):
+original_n <- length(unique(responses$child_id))
+responses %>% group_by(child_id) %>%
+  filter(!any(is.na(value))) %>% ungroup() -> responses
 ```
 
-We prepare the responses matrix
-(eliminating all 0's and all 1's items).
+There are three key objects needed for all the analyses done and presented here:
 
-Mirt documentation suggests however removing items with difficulties > .95 and < .05.
-**Check and explore in the future.**
+1. `responses` matrix (administrations x items; 0/1)
+2. `cdi` data frame (items with their definitions & glosses)
+3. `scores` data frame (participant information: raw scores & demographics)
 
-```{r response_matrix}
+To prepare the `responses` matrix we eliminate *floor* and *ceiling* (zero variance) items.
+
+**NB:** `Mirt` documentation suggests removing, as *floor* and *ceiling*,
+items with difficulties > *.95* and < *.05*. **Check and explore in the future?**
+
+```{r data_processing}
+# Filter out floor & ceiling items:
+no_na_n <- length(unique(responses$child_id))
 responses %>% group_by(item_id) %>% filter(var(value) > 0) %>%
   pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
-
-# We recalculate scores here to maintain the response matrix row order
-# (which seems to be messed up with in the process of pivoting above):
-responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>%
-     select(1, last_col()) %>% left_join(scores) %>% select(- last_col()) -> scores
-
-responses <- as.matrix(select(responses, starts_with("item_")))
+# Remove them from the instrument data:
+original_cdi_n <- nrow(cdi)
 cdi %>% filter(item_id %in% colnames(responses)) -> cdi
 
-print(paste0("There are ", nrow(responses), " parents, ", ncol(responses),
-             " items (out of ", nrow(cdi), ") with non-zero variance, and ",
-             length(which(is.na(responses))), " missing responses."))
+# Calculate scores and merge with demographics:
+responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>%
+     select(1, last_col()) %>% left_join(participants) %>% select(- last_col()) -> scores
+
+# Create responses matrix:
+responses <- as.matrix(select(responses, starts_with("item_")))
 ```
+
+There were `r original_n` `r paste(language, scale)` administrations.
+`r no_na_n` left after removing those with missing data.
+There were`r original_cdi_n` `r paste(language, scale)` items.
+After removing *floor* and *ceiling* items there are
+`r nrow(responses)` administrations and `r ncol(responses)` items
+for IRT model fitting.
 
 
 # Model creation
