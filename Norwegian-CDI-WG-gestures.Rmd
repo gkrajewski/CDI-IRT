@@ -110,9 +110,6 @@ The *participants* file contains demographic data (*age* and *sex* in particular
 read_csv(paste(filename_data, "participants.csv", sep="_")) -> participants
 read_csv(paste(filename_data, "responses.csv", sep="_")) -> responses
 
-# Extract instrument contents (item definitions, English glosses, and IDs):
-responses %>% distinct(item_definition, english_gloss, item_id) -> cdi
-
 # Filter & recode responses based on scale:
 if(subscale == "Gest") {
   responses %>% filter(str_starts(item_kind, "gestures")) %>%
@@ -133,6 +130,8 @@ if(subscale == "Gest") {
                                 .default = 0)) -> responses
 }
 
+# Extract instrument contents (item definitions, English glosses, and IDs):
+responses %>% distinct(item_definition, english_gloss, item_id) -> cdi
 ```
 
 There are three key objects needed for all the analyses done and presented here:
