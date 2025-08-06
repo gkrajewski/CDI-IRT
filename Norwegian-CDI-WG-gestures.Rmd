@@ -99,8 +99,7 @@ There should be two *csv* files:
 
 The *responses* file is used to extract the list of `r scale` items
 (with their definitions and English glosses, if available).
-Relevant responses are recoded as 0's and 1's appropriately and
-children with at least one `NA` are excluded.
+Relevant responses are recoded as 0's and 1's appropriately.
 
 The *participants* file contains demographic data (*age* and *sex* in particular).
 
@@ -132,10 +131,6 @@ if(subscale == "Gest") {
                                 .default = 0)) -> responses
 }
 
-# Drop children with at least one NA):
-original_n <- length(unique(responses$child_id))
-responses %>% group_by(child_id) %>%
-  filter(!any(is.na(value))) %>% ungroup() -> responses
 ```
 
 There are three key objects needed for all the analyses done and presented here:
@@ -151,7 +146,7 @@ items with difficulties > *.95* and < *.05*. **Check and explore in the future?*
 
 ```{r data_processing}
 # Filter out floor & ceiling items:
-no_na_n <- length(unique(responses$child_id))
+original_n <- length(unique(responses$child_id))
 responses %>% group_by(item_id) %>% filter(var(value) > 0) %>%
   pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
 # Remove them from the instrument data:
@@ -166,9 +161,8 @@ responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>
 responses <- as.matrix(select(responses, starts_with("item_")))
 ```
 
-There were `r original_n` `r paste(language, scale)` administrations.
-`r no_na_n` left after removing those with missing data.
-There were`r original_cdi_n` `r paste(language, scale)` items.
+There are `r original_n` `r paste(language, scale)` administrations
+and `r original_cdi_n` `r paste(language, scale)` items.
 After removing *floor* and *ceiling* items there are
 `r nrow(responses)` administrations and `r ncol(responses)` items
 for IRT model fitting.
