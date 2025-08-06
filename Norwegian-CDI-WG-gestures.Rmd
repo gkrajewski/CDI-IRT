@@ -64,11 +64,11 @@ for (f in files) source(f)
 ```
 
 
-# Data preparation
+## Data preparation
 
 Data may be downloaded from the Wordbank database and saved locally
 for quicker access in the future. See and run the chunk below for that
-(modifying calls to `select()` if more data, demographics in particular, is needed)
+(modifying calls to `select()` if more data, demographics in particular, is needed).
 
 ```{r wordbank_download, eval=FALSE, echo=TRUE}
 # Get responses and item data:
@@ -78,8 +78,8 @@ wordbankr::get_instrument_data(language, version,
      filter(is_norming) -> responses
 # More item data available, if needed -- modify select():
 responses %>%
-  select(child_id, item_id, item_definition, english_gloss, item_kind, value) %>%
-  write_csv(paste(filename_data, "responses.csv", sep="_"))
+     select(child_id, item_id, item_definition, english_gloss, item_kind, value) %>%
+     write_csv(paste(filename_data, "responses.csv", sep="_"))
 
 # Get demographics data:
 wordbankr::get_administration_data(language, version,
@@ -91,19 +91,20 @@ wordbankr::get_administration_data(language, version,
      filter(is_norming) -> participants
 # More demographics data available, if needed -- modify select():
 participants %>%
-  select(child_id, age, sex) %>%
-  write_csv(paste(filename_data, "participants.csv", sep="_"))
+     select(child_id, age, sex) %>%
+     write_csv(paste(filename_data, "participants.csv", sep="_"))
 ```
 
 There should be two *csv* files:
-`r paste(filename_data, "responses.csv", sep="_")` and
-`r paste(filename_data, "participants.csv", sep="_")`.
 
-The *responses* file is used to extract the list of `r scale` items
+1. "`r paste(filename_data, "responses.csv", sep="_")`" and
+2. "`r paste(filename_data, "participants.csv", sep="_")`".
+
+First one is used to extract the list of `r paste(language, scale)` items
 (with their definitions and English glosses, if available).
 Relevant responses are recoded as 0's and 1's appropriately.
 
-The *participants* file contains demographic data (*age* and *sex* in particular).
+Second one contains demographic data (*age* and *sex* in particular).
 
 ```{r data_import}
 # Read csv files:
@@ -112,22 +113,22 @@ read_csv(paste(filename_data, "responses.csv", sep="_")) -> responses
 
 # Filter & recode responses based on scale:
 if(subscale == "Gest") {
-  responses %>% filter(str_starts(item_kind, "gestures")) %>%
-      mutate(value = case_match(value,
-                                c("not yet", "no") ~ 0,
-                                c("often", "sometimes", "yes") ~ 1,
-                                .default = NA)) -> responses
+     responses %>% filter(str_starts(item_kind, "gestures")) %>%
+          mutate(value = case_match(value,
+                                   c("not yet", "no") ~ 0,
+                                   c("often", "sometimes", "yes") ~ 1,
+                                   .default = 0)) -> responses
 } else {
-  if(subscale == "Prod") {
-    positive <- c("produces", "understands")
-  } else {
-    positive <- "understands"
-  }
-  responses <- filter(responses, item_kind == "word") %>%
-      mutate(value = case_match(value,
-                                positive ~ 1,
-                                NA ~ NA,
-                                .default = 0)) -> responses
+     if(subscale == "Prod") {
+          positive <- c("produces", "understands")
+     } else {
+          positive <- "understands"
+     }
+     responses %>% filter(item_kind == "word") %>%
+          mutate(value = case_match(value,
+                                    positive ~ 1,
+                                    NA ~ 0,
+                                    .default = 0)) -> responses
 }
 
 # Extract instrument contents (item definitions, English glosses, and IDs):
@@ -149,7 +150,7 @@ items with difficulties > *.95* and < *.05*. **Check and explore in the future?*
 # Filter out floor & ceiling items:
 original_n <- length(unique(responses$child_id))
 responses %>% group_by(item_id) %>% filter(var(value) > 0) %>%
-  pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
+     pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
 # Remove them from the instrument data:
 original_cdi_n <- nrow(cdi)
 cdi %>% filter(item_id %in% colnames(responses)) -> cdi
