@@ -20,8 +20,6 @@ knitr::opts_chunk$set(include = TRUE,
 Below are the settings for the analyses reported in this document.
 
 ```{r settings, echo = TRUE}
-functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
-data_dir <- "Data"
 language <- "Norwegian"
 scale <- "WG Gestures" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
 ```
@@ -29,6 +27,10 @@ scale <- "WG Gestures" # one of "WG Comprehension", "WG Production", "WG Gesture
 Plot titles, file names etc. are based on them.
 
 ```{r analyses_setup}
+# Additional setup:
+functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
+data_dir <- "Data"
+
 version <- strsplit(scale, " ")[[1]]
 subscale <- "Prod"
 if(length(version) > 1) substr(version[2], 1, 4) -> subscale
@@ -46,7 +48,6 @@ The following  libraries are loaded.
 
 ```{r libraries, echo=TRUE, results='hide'}
 library(beepr)
-library(wordbankr)
 library(tidyverse)
 library(mirt)
 library(mirtCAT)
@@ -54,7 +55,8 @@ library(parallel)
 library(ggpubr)
 ```
 
-Functions from `r paste0("`", functions_dir, "`")` directory are sourced.
+Functions from "`r functions_dir`" directory are sourced.
+Data are expected and saved in "`r data_dir`" directory.
  
 ```{r functions}
 files <- list.files(path = functions_dir, pattern = "\\.R$", full.names = TRUE)
@@ -70,23 +72,23 @@ for quicker access in the future. See and run the chunk below for that
 
 ```{r wordbank_download, eval=FALSE, echo=TRUE}
 # Get responses and item data:
-get_instrument_data(language, version,
-                    administration_info=TRUE,
-                    item_info=TRUE) %>%
-                    filter(is_norming) -> responses
+wordbankr::get_instrument_data(language, version,
+                               administration_info=TRUE,
+                               item_info=TRUE) %>%
+     filter(is_norming) -> responses
 # More item data available, if needed -- modify select():
 responses %>%
   select(child_id, item_id, item_definition, english_gloss, item_kind, value) %>%
   write_csv(paste(filename_data, "responses.csv", sep="_"))
 
 # Get demographics data:
-get_administration_data(language, version,
-                        include_demographic_info=TRUE,
-                        include_birth_info=TRUE,
-                        include_health_conditions=TRUE,
-                        include_language_exposure=TRUE,
-                        include_study_internal_id=TRUE) %>%
-                        filter(is_norming) -> participants
+wordbankr::get_administration_data(language, version,
+                                   include_demographic_info=TRUE,
+                                   include_birth_info=TRUE,
+                                   include_health_conditions=TRUE,
+                                   include_language_exposure=TRUE,
+                                   include_study_internal_id=TRUE) %>%
+     filter(is_norming) -> participants
 # More demographics data available, if needed -- modify select():
 participants %>%
   select(child_id, age, sex) %>%
