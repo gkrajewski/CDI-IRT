@@ -21,7 +21,7 @@ Below are the settings for the analyses reported in this document.
 
 ```{r settings, echo = TRUE}
 language <- "Norwegian"
-scale <- "WG Gestures" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
+scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
 ```
 
 Plot titles, file names etc. are based on them.
@@ -181,41 +181,66 @@ We continue with removing misfits and locally dependent items if needed.
 
 ## Quadrature points
 
-We decide on the number of quadrature points iteratively
-by fitting models with increasing numbers and
-comparing their fit. We start with the default and increase it in
-a number of arbitrary, but hopefully not unreasonable, steps.
+### Introduction
 
-We also compare the parameter estimates for the first item,
-just out of curosity: as the goodness of fit stabilises, so
-should the estimates.
+The number of quadrature points (`quadpts` parameter in `mirt` package)
+is a parameter important for numerical integration used
+in the IRT model fitting. We know that for some of our datasets the default number
+results in the model not converging. Therefore with new data we used to
+routinely first try model fitting with an increasing number of `quadpts`,
+starting with the default 61, and going up by an arbitrary number of arbitrary
+steps. We would then compare the convergence of the model, its fit, and
+the parameter estimates for the first item, and choose the `quadpts`
+for which these statistics stabilised (roughly).
 
-*It may take some time! Switch eval on only if you really need to recalculate.*
+Given that model fitting is a one-off thing (we save the model for later reuse),
+it seems more convenient -- and also beneficial in the context of cross data comparisons --
+to set `quadpts` reasonably high and keep it constant. The following section
+is totally optional.
 
-```{r quadpts_comp, eval=FALSE}
+### Model comparisons (only if needed)
+
+From time to time we might want to run these comparisons. E.g., if new analyses
+yield results different from the old ones, or for new data, especially if
+the model doesn't converge on the first try.
+
+The `quadpts` values tested and the choice criteria are not precise but
+it shouldn't matter. The greater the value the longer fitting time but greater precision.
+The default, historical, vector `quadpts = c(61, 151, 301, 451, 601, 751)` can be
+changed as required.
+
+```{r quadpts_comp, eval=FALSE, echo=TRUE}
 quadpts <- quadpts_comp(responses, quadpts = c(61, 151, 301, 451, 601, 751), NCYCLES = 100000,
-             output_file = "Data/norwegian_ws_quadpts.RData")
+             output_file = paste(filename_prefix, "quadpts.RData", sep="_"))
 ```
 
-We load the comparison of model fits for different numbers of quadrature points
-from a file. Here there are:
+Results of the above code are saved to a file
+("`r paste(filename_prefix, "quadpts.RData", sep="_")`"), so it needs to be run
+only once.
 
-```{r quadpts_comp1}
-load("Data/norwegian_ws_quadpts.RData")
+The convergence status and model fits (logLik) for different values of `quadpts`
+(which can be printed below) are read from that file.
+
+```{r quadpts_comp_fit, eval=FALSE}
+load(paste(filename_prefix, "quadpts.RData", sep="_"))
 quadpts[1:3,]
 ```
 
-And here are the parameter estimates for the first item:
+The same applies to parameter estimates for the first item.
 
-```{r quadpts_comp2}
+```{r quadpts_comp_estimates, eval=FALSE}
 sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
 ```
 
-```{r quadpts_set}
-quadtp <- 301
+
+### Setting
+
+Based on the above (**or not**) we set the number of quadrature points.
+
+```{r quadpts_set, echo=TRUE}
+quadtp <- 601
 ```
 
-Based on the above we set the number of quadrature points to `r quadtp`.
 
 ## Model fitting, round 1
 
