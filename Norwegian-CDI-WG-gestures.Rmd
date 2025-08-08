@@ -242,24 +242,40 @@ quadtp <- 601
 ```
 
 
-## Model fitting, round 1
+## Model fitting (**iterate**, if needed)
 
-We iteratively fit the model and remove any misfits until we have fits for all items.
+When fitting the IRT model, we eliminate items for which:
 
-*It may take some time!*
+1. the model doesn't fit (significant S-X²);
+2. the residuals are too closely related to another item's residuals (Cramer's $V > .5$).
 
-We save the model to a file to save time in the future
-(if you want to refit the model, switch the eval on):
+If point 2 applies this whole section has to be re**iterated**.
+In such a case modify `fitting_iteration` accordingly for future *kniting*.
+
+```{r fitting_iteration, echo=TRUE}
+fitting_iteration <- 1
+```
+
+Some of the code chunks in this section may take time to run, so their
+output is saved to a file, with the **iteration** number attached
+to the filename. Rerun them only if needed.
+
+### Misfits removal
+
+First we repeatedly fit the model with `r quadtp` quadrature points,
+each time remove any misfits until we have fits for all items.
+The final model and the list of removed items are saved to
+"`r paste(filename_prefix, fitting_iteration, "model.RData", sep="_")`" file.
 
 ```{r misfits_removal, eval=FALSE}
 model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                          output_file = "Data/norwegian_ws.RData")
+                          output_file = paste(filename_prefix, fitting_iteration, "model.RData", sep="_"))
 ```
 
-We load the model from a file and print a basic summary:
+We print the model's basic summary.
 
 ```{r model_summary}
-load("Data/norwegian_ws.RData")
+load(paste(filename_prefix, fitting_iteration, "model.RData", sep="_"))
 mod <- model[[1]]
 items_removed <- model[[2]]
 rm(model) # to save space
@@ -267,14 +283,15 @@ rm(model) # to save space
 mod
 ```
 
-### Items fit
-
-`r length(unlist(items_removed))` items were misfits in the process of model fitting and
-were removed in `r length(items_removed)` iterations before a model with no misfits was obtained.
+`r length(unlist(items_removed))` items were misfits in the process of model fitting.
 
 ```{r items_removed_list}
 cdi %>% filter(item_id %in% unlist(items_removed))
 ```
+
+They were removed in `r length(items_removed)` iterations before a model with no misfits was obtained
+(misfits removing function iterations, not to be confused with `fitting_iteration`
+equaled `r fitting_iteration`).
 
 ```{r items_removed}
 if(length(items_removed)) {
@@ -287,20 +304,27 @@ if(length(items_removed)) {
 
 ### Local dependence
 
-*Check and explore the following code in the future (also compare with Kachergis et al., 2022)*
+As the next step we check for local dependence, i.e., pairwise correlations between
+items after taking the model (i.e., the underlying trait) into account.
+We calculate Cramer's *V* for each pair of residuals and save the results to
+"`r paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_")`" file.
 
 ```{r local_dependence, eval=FALSE}
 # I can't make the following code hide the results...
 residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
-save(residuals, file = "Data/norwegian_ws_residuals.RData")
+save(residuals, file = paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
 ```
 
+The histogram below shows the Cramer's *V* distribution.
+
 ```{r local_dependence_histogram}
-load("Data/norwegian_ws_residuals.RData")
+load(paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
 residuals_up <- residuals
 residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
 hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
 ```
+
+These are the descriptive statistics of the distribution.
 
 ```{r local_dependence_summary}
 summary(as.vector(residuals_up))[-7]
@@ -308,7 +332,7 @@ summary(as.vector(residuals_up))[-7]
 ```
 
 To display the most highly mutually dependent items
-we use V > .3 as the threshold:
+we use $V > .3$ as the threshold.
 
 ```{r local_dependence_high}
 indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
@@ -316,8 +340,8 @@ data.frame(item1 = pull(cdi[indexes[, 1], "english_gloss"]),
            item2 = pull(cdi[indexes[, 2], "english_gloss"]), CramersV = residuals_up[indexes])
 ```
 
-There are a few but following Kachergis et al. we set the threshold for removing items to V > .5
-and we remove the following items:
+To **remove** the most highly mutually dependent items
+we use $V > .5$ as the threshold.
 
 ```{r local_dependence_remove}
 indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
@@ -330,85 +354,15 @@ if(length(items_to_remove_ids)) {
 }
 ```
 
+Number of removed items is `r length(items_to_remove_ids)`.
+If it's greater than zero we need to increase the `fitting_iteration` number
+by one (see chunk below) and repeat everything from
+the [Misfits removal](#misfits-removal) section onwards
+(also don't forget to update the `fitting_iteration` chunk right before
+[Misfits removal](#misfits-removal)).
 
-## Model fitting, round 2
-
-Then we repeat the iterative model fit with misfits removal.
-
-```{r misfits_removal_2, eval=FALSE}
-model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                          output_file = "Data/norwegian_ws_2.RData")
-```
-
-We load the model from a file (comment out if just fitted above)
-and print a basic summary:
-
-```{r model_summary_2}
-load("Data/norwegian_ws_2.RData")
-mod <- model[[1]]
-items_removed <- model[[2]]
-rm(model) # to save space
-
-mod
-```
-
-
-### Items fit
-
-`r length(unlist(items_removed))` items were misfits in the process of model fitting and
-were removed in `r length(items_removed)` iterations before a model with no misfits was obtained.
-
-```{r items_removed_list_2}
-cdi %>% filter(item_id %in% unlist(items_removed))
-```
-
-```{r items_removed_2}
-if(length(items_removed)) {
-  responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
-  cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
-  if (nrow(cdi) == ncol(responses)) print(paste0(ncol(responses), " items left after removal."))
-}
-```
-
-
-### Local dependence
-
-*Seems like we don't need to repeat the local dependence procedure.*
-*Cramer's Vs remain (almost)
-
-```{r local_dependence_2, eval=FALSE}
-# I can't make the following code hide the results...
-residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
-save(residuals, file = "Data/norwegian_ws_residuals_2.RData")
-```
-
-```{r local_dependence_histogram_2, eval=FALSE}
-load("Data/norwegian_ws_residuals_2.RData")
-residuals_up <- residuals
-residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
-hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
-```
-
-```{r local_dependence_summary_2, eval=FALSE}
-summary(as.vector(residuals_up))[-7]
-# -7 to avoid reporting NAs, which would be confusing as lower triangle is filled with them
-```
-
-```{r local_dependence_high_2, eval=FALSE}
-indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
-data.frame(item1 = pull(cdi[indexes[, 1], "english_gloss"]),
-           item2 = pull(cdi[indexes[, 2], "english_gloss"]), CramersV = residuals_up[indexes])
-```
-
-```{r local_dependence_remove_2, eval=FALSE}
-indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
-data.frame(item1 = pull(cdi[indexes[, 1], "item_definition"]),
-           item2 = pull(cdi[indexes[, 2], "item_definition"]), CramersV = residuals_up[indexes])
-unique(as.vector(indexes)) -> items_to_remove_ids
-if(length(items_to_remove_ids)) {
-     responses[, -items_to_remove_ids] -> responses
-     cdi[-items_to_remove_ids,] -> cdi
-}
+```{r fitting_iteration_increment, eval=FALSE, echo=TRUE}
+fitting_iteration <- fitting_iteration + 1
 ```
 
 
