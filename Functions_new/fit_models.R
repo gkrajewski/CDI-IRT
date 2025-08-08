@@ -46,6 +46,7 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
     } else {
 
       mod <- mirt(data = responses, model = 1, SE = TRUE, quadpts = quadtps, technical = list(NCYCLES = NCYCLES))
+      cat(paste0("\nCalculating item fit..."))
       itemfit <- itemfit(mod, method = "MAP")
       items_to_remove <- itemfit[itemfit$p.S_X2 < p | is.na(itemfit$p.S_X2), "item"]
 
@@ -68,7 +69,7 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
 
   }
 
-  model <- list(mod, items_removed)
+  model <- list(mod, items_removed, itemfit)
   if (!is.null(output_file)){
     save(model, file = output_file)
     cat(paste0("\nOutput is saved as ", output_file, " in ", getwd()))

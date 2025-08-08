@@ -278,6 +278,7 @@ We print the model's basic summary.
 load(paste(filename_prefix, fitting_iteration, "model.RData", sep="_"))
 mod <- model[[1]]
 items_removed <- model[[2]]
+item_fit <- model[[3]]
 rm(model) # to save space
 
 mod
