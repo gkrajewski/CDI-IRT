@@ -238,7 +238,7 @@ sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
 Based on the above (**or not**) we set the number of quadrature points.
 
 ```{r quadpts_set, echo=TRUE}
-quadtp <- 601
+quadtp <- 600
 ```
 
 
