@@ -305,9 +305,54 @@ if(length(items_removed)) {
 
 ### Local dependence
 
-As the next step we check for local dependence, i.e., pairwise correlations between
+As the next step we check pairwise correlations between
 items after taking the model (i.e., the underlying trait) into account.
-We calculate Cramer's *V* for each pair of residuals and save the results to
+For each pair of residuals we calculate Cramer's $V$, a measure of
+association between two dichotomous variables.
+
+#### More on the issue
+
+What `mirt` package returns are **signed** coefficients and the sign indicates the direction of
+the relation. Positive relation (*local dependence*) means that two items
+are more related than the model predicts, i.e., are too similar or redundant.
+IRT assumes *local independence*: after conditioning on the latent trait $\theta$,
+responses are assumed to be statistically independent; or in plain English,
+if we know a person’s ability level, knowing their response to one item
+should not help us predict their response to another; *Chat GPT* assistance).
+
+Keeping locally dependent items in the item pool may lead to a number of
+distortions in CAT measurement (crucially, among other, inflated $\theta$ estimates;
+*Chat GPT* assistance). This is why it is important to monitor this problem.
+As with any correlation metric however, its interpretation is always arbitrary.
+
+So far we have simply removed all item pairs with $V > .5$.
+However, $.5$ might be too *high* as a threshold, potentially leaving in too many
+locally dependent items. At the same time, removing *both items* is obviously
+too harsh, reducing the item pool excessively,
+since the problem is the relation between them, not the items themselves.
+
+Deciding on which item to keep is not straightforward though.
+The simplest option is to rely on a single statistic, e.g., *item's fit*,
+but high $V$ pairs are often *gender pairs* like "mommy--daddy", "boy--girl",
+"grandpa--granny", "his--her": keeping only one seems somewhat questionable
+(this is in fact a potential guideline for future CDI development/revisions:
+**make such pairs single items**).
+Moreover, the same item may appear in a number of high $V$ pairs:
+it's reasonable to remove that item, even if its fit is better than the other items'.
+
+Finally, so far we have overlooked negative $V$'s:
+they suggest the violation of the local independence assumption as well
+(hidden multidimensionality might be at play).
+However, they seem to be less common and might be less distortive for CAT measurement
+(*Chat GPT* assistance; further checks needed).
+
+All the above suggests that diagnosing local dependence is a complex issue that
+might require careful examination and deliberate decisions, rether than
+a purely algorithmic procedure.
+
+#### Summary & selection
+
+We calculate Cramer's $V$ for each pair of residuals and save the results to
 "`r paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_")`" file.
 
 ```{r local_dependence, eval=FALSE}
@@ -316,7 +361,7 @@ residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
 save(residuals, file = paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
 ```
 
-The histogram below shows the Cramer's *V* distribution.
+The histogram below shows the (**signed**) Cramer's $V$ distribution.
 
 ```{r local_dependence_histogram}
 load(paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
@@ -332,22 +377,31 @@ summary(as.vector(residuals_up))[-7]
 # -7 to avoid reporting NAs, which would be confusing as lower triangle is filled with them
 ```
 
-To display the most highly mutually dependent items
-we use $V > .3$ as the threshold.
+To display *questionably* mutually dependent items
+we use $V > .3$ as the threshold. We print their definitions, English glosses,
+and fit statistics (\mathrm{S\!-\!X}^2).
 
-```{r local_dependence_high}
-indexes <- arrayInd(which(residuals_up > 0.3), dim(residuals))
-data.frame(item1 = pull(cdi[indexes[, 1], "english_gloss"]),
-           item2 = pull(cdi[indexes[, 2], "english_gloss"]), CramersV = residuals_up[indexes])
+```{r local_dependence_positive}
+cramers_V_df(arrayInd(which(residuals_up > 0.3), dim(residuals)), cdi, item_fit) %>%
+  select(- starts_with("item_id"))
 ```
+
+In the same way we also print all pairs with *questionably* high negative
+values ($V < -.3$).
+
+```{r local_dependence_negative}
+cramers_V_df(arrayInd(which(residuals_up < -0.3), dim(residuals)), cdi, item_fit) %>%
+  select(- starts_with("item_id"))
+```
+
 
 To **remove** the most highly mutually dependent items
 we use $V > .5$ as the threshold.
 
 ```{r local_dependence_remove}
 indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
-data.frame(item1 = pull(cdi[indexes[, 1], "item_definition"]),
-           item2 = pull(cdi[indexes[, 2], "item_definition"]), CramersV = residuals_up[indexes])
+cramers_V_df(indexes, cdi, item_fit) %>%
+  select(- starts_with("item_id"))
 unique(as.vector(indexes)) -> items_to_remove_ids
 if(length(items_to_remove_ids)) {
      responses[, -items_to_remove_ids] -> responses
