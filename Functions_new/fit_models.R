@@ -78,3 +78,16 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
   return(model)
 
 }
+
+
+cramers_V_df <- function(ind, cdi, item_fit) {
+  items_1 <- cdi[ind[, 1], colnames(cdi)]
+  items_2 <- cdi[ind[, 2], colnames(cdi)]
+  names(items_1) <- paste0(names(items_1), "_1")
+  names(items_2) <- paste0(names(items_2), "_2")
+  bind_cols(items_1, items_2, CramersV = residuals_up[ind]) %>%
+    left_join(item_fit[, 1:2], by = join_by(item_id_1 == item)) %>%
+    rename(item1_fit = S_X2) %>%
+    left_join(item_fit[, 1:2], by = join_by(item_id_2 == item)) %>%
+    rename(item2_fit = S_X2)
+}
