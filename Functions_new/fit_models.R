@@ -36,7 +36,7 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
 
   for (n in 1:ncol(responses)){
 
-    cat(paste0("\n -- ", "MODEL ", n, " -- \n"))
+    cat(paste("\n -- MODEL", n, "@", Sys.time(), "-- \n"))
 
     if (n == maxN + 1){
 
@@ -70,6 +70,7 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
   }
 
   model <- list(mod, items_removed, item_fit)
+  cat(paste("\nFinished @", Sys.time()))
   if (!is.null(output_file)){
     save(model, file = output_file)
     cat(paste0("\nOutput is saved as ", output_file, " in ", getwd()))
