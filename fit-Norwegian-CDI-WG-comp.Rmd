@@ -1,7 +1,12 @@
 ---
 title: "IRT model fitting"
 subtitle: "Norwegian CDI:WG Comprehension"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    code_folding: show
 ---
 
 
