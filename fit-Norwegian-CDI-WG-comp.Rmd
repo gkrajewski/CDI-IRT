@@ -180,18 +180,9 @@ We export `scores` data frame to "`r paste(filename_prefix, "scores.csv", sep="_
 to use it once we have a model.
 
 
-# Model creation
+# Number of quadrature points
 
-For the model creation
-we start by deciding on the optimal number of quadrature points.
-With a set number of quadrature points we proceed to fitting the model iteratively,
-first removing any items without a fit,
-and then removing all items showing high local dependence and fitting the model again.
-We continue with removing misfits and locally dependent items if needed.
-
-## Quadrature points
-
-### Introduction
+## Introduction
 
 The number of quadrature points (`quadpts` parameter in `mirt` package)
 is a parameter important for numerical integration used
@@ -208,7 +199,7 @@ it seems more convenient -- and also beneficial in the context of cross data com
 to set `quadpts` reasonably high and keep it constant. The following section
 is totally optional.
 
-### Model comparisons (only if needed)
+## Model comparisons (*only if needed*)
 
 From time to time we might want to run these comparisons. E.g., if new analyses
 yield results different from the old ones, or for new data, especially if
@@ -243,7 +234,7 @@ sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
 ```
 
 
-### Setting
+## Setting
 
 Based on the above (**or not**) we set the number of quadrature points.
 
@@ -251,8 +242,6 @@ Based on the above (**or not**) we set the number of quadrature points.
 quadtp <- 600
 ```
 
-
-## Model fitting (**iterate**, if needed)
 
 When fitting the IRT model, we eliminate items for which:
 
@@ -264,13 +253,15 @@ In such a case modify `fitting_iteration` accordingly for future *kniting*.
 
 ```{r fitting_iteration, echo=TRUE}
 fitting_iteration <- 1
+# Model fitting
+
 ```
 
 Some of the code chunks in this section may take time to run, so their
 output is saved to a file, with the **iteration** number attached
 to the filename. Rerun them only if needed.
 
-### Misfits removal
+## Step 1. Misfits removal
 
 First we repeatedly fit the model with `r quadtp` quadrature points,
 each time remove any misfits until we have fits for all items.
@@ -313,14 +304,14 @@ if(length(items_removed)) {
 ```
 
 
-### Local dependence
+## Step 2. Local dependence
 
 As the next step we check pairwise correlations between
 items after taking the model (i.e., the underlying trait) into account.
 For each pair of residuals we calculate Cramer's $V$, a measure of
 association between two dichotomous variables.
 
-#### More on the issue
+### More on the issue
 
 What `mirt` package returns are **signed** coefficients and the sign indicates the direction of
 the relation. Positive relation (*local dependence*) means that two items
@@ -360,10 +351,10 @@ All the above suggests that diagnosing local dependence is a complex issue that
 might require careful examination and deliberate decisions, rether than
 a purely algorithmic procedure.
 
-#### Summary & selection
 
 We calculate Cramer's $V$ for each pair of residuals and save the results to
 "`r paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_")`" file.
+### Summary & selection
 
 ```{r local_dependence, eval=FALSE, results='hide'}
 # I can't make the following code hide the results...
