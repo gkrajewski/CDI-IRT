@@ -243,8 +243,6 @@ quadtp <- 600
 ```
 
 
-```{r fitting_iteration, echo=TRUE}
-fitting_iteration <- 1
 # Model fitting
 
 Our fitting the IRT model is an iterative process that involves eliminating items and
@@ -268,6 +266,28 @@ Key intermediate results are saved to files in "`r data_dir`" directory with
 If the document knits, the whole model fitting procedure has already succeeded and
 the summary is simply printed below.
 
+```{r fitting_settings}
+list.files(path = data_dir, pattern = "model.RData$", full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_([0-9]+)_")) |>
+  as.numeric() |> na.omit() |> max() -> outer_loop_iteration
+inner_loop_run <- FALSE
+outer_loop_run <- TRUE
+if (! is.finite(outer_loop_iteration)) {
+  if (isTRUE(getOption("knitr.in.progress"))) {
+    stop("Stop! Run model fitting chunks below, before you can knit the document.")
+  } else {
+    outer_loop_iteration <- 1
+    inner_loop_run <- TRUE
+  }
+} else {
+  load(paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
+  load(paste(filename_prefix, outer_loop_iteration, "model.RData", sep="_"))
+  
+  mod <- model[[1]]
+  items_removed <- model[[2]]
+  item_fit <- model[[3]]
+  rm(model) # to save space
+}
 ```
 
 
