@@ -315,10 +315,17 @@ save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.R
 
 ## Step 2. Local dependence
 
-As the next step we check pairwise correlations between
+We check pairwise correlations between
 items after taking the model (i.e., the underlying trait) into account.
 For each pair of residuals we calculate Cramer's $V$, a measure of
 association between two dichotomous variables.
+
+```{r local_dependence, eval=inner_loop_run, results='hide'}
+# I can't make the following code hide the results...
+residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
+residuals[lower.tri(residuals)] <- NA # upper diagonal contains signed Cramers V coefficients
+save(residuals, file = paste(filename_prefix, outer_loop_iteration, "residuals.RData", sep="_"))
+```
 
 ### More on the issue
 
@@ -360,30 +367,25 @@ All the above suggests that diagnosing local dependence is a complex issue that
 might require careful examination and deliberate decisions, rether than
 a purely algorithmic procedure.
 
-
-We calculate Cramer's $V$ for each pair of residuals and save the results to
-"`r paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_")`" file.
 ### Summary & selection
 
-```{r local_dependence, eval=FALSE, results='hide'}
-# I can't make the following code hide the results...
-residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
-save(residuals, file = paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
-```
+So far it seems (with various datasets) that refitting the model for a subset of items
+(after exclusions) doesn't affect Cramer's $V$ for remaining pairs, so the "outer" loop
+iterates twice at most (all high $V$ items are removed in the first iteration).
+**It might be worth exploring** but meanwhile we just summarise Cramer's $V$ distribution
+after any previous exclusions.
 
 The histogram below shows the (**signed**) Cramer's $V$ distribution.
 
-```{r local_dependence_histogram}
-load(paste(filename_prefix, fitting_iteration, "residuals.RData", sep="_"))
-residuals_up <- residuals
-residuals_up[lower.tri(residuals_up)] <- NA # upper diagonal contains signed Cramers V coefficients
-hist(residuals_up, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
+```{r local_dependence_histogram, eval=outer_loop_run}
+load(paste(filename_prefix, outer_loop_iteration, "residuals.RData", sep="_"))
+hist(residuals, main="Histogram of signed Cramer's V coefficients", xlab= "Cramer's V")
 ```
 
 These are the descriptive statistics of the distribution.
 
-```{r local_dependence_summary}
-summary(as.vector(residuals_up))[-7]
+```{r local_dependence_summary, eval=outer_loop_run}
+summary(as.vector(residuals))[-7]
 # -7 to avoid reporting NAs, which would be confusing as lower triangle is filled with them
 ```
 
@@ -391,31 +393,35 @@ To display *questionably* mutually dependent items
 we use $V > .3$ as the threshold. We print their definitions, English glosses,
 and fit statistics (\mathrm{S\!-\!X}^2).
 
-```{r local_dependence_positive}
-cramers_V_df(arrayInd(which(residuals_up > 0.3), dim(residuals)), cdi, item_fit) %>%
+```{r local_dependence_positive, eval=outer_loop_run}
+cramers_V_df(arrayInd(which(residuals > 0.3), dim(residuals)), cdi, item_fit) %>%
   select(- starts_with("item_id"))
 ```
 
 In the same way we also print all pairs with *questionably* high negative
 values ($V < -.3$).
 
-```{r local_dependence_negative}
-cramers_V_df(arrayInd(which(residuals_up < -0.3), dim(residuals)), cdi, item_fit) %>%
+```{r local_dependence_negative, eval=outer_loop_run}
+cramers_V_df(arrayInd(which(residuals < -0.3), dim(residuals)), cdi, item_fit) %>%
   select(- starts_with("item_id"))
 ```
-
 
 To **remove** the most highly mutually dependent items
 we use $V > .5$ as the threshold.
 
-```{r local_dependence_remove}
-indexes <- arrayInd(which(residuals_up > 0.5), dim(residuals))
+```{r local_dependence_remove, eval=outer_loop_run}
+indexes <- arrayInd(which(residuals > 0.5), dim(residuals))
 cramers_V_df(indexes, cdi, item_fit) %>%
   select(- starts_with("item_id"))
 unique(as.vector(indexes)) -> items_to_remove_ids
 if(length(items_to_remove_ids)) {
      responses[, -items_to_remove_ids] -> responses
      cdi[-items_to_remove_ids,] -> cdi
+     save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
+     outer_loop_iteration <- outer_loop_iteration + 1
+     stop(paste(length(items_to_remove_ids), "items are removed due to high local dependence.",
+                "Rerun chunks from Step 1 onwards. You can do it now but if you close and rerun",
+                "everything later, it should get you back on track anyway."))
 }
 ```
 
