@@ -237,6 +237,7 @@ sapply(1:ncol(quadpts), function(x) quadpts[,x]$item1pars)
 ## Setting
 
 Based on the above (**or not**) we set the number of quadrature points.
+600 is the current cross-data and cross-languages default.
 
 ```{r quadpts_set, echo=TRUE}
 quadtp <- 600
@@ -391,7 +392,7 @@ summary(as.vector(residuals))[-7]
 
 To display *questionably* mutually dependent items
 we use $V > .3$ as the threshold. We print their definitions, English glosses,
-and fit statistics (\mathrm{S\!-\!X}^2).
+and fit statistics (S-X²).
 
 ```{r local_dependence_positive, eval=outer_loop_run}
 cramers_V_df(arrayInd(which(residuals > 0.3), dim(residuals)), cdi, item_fit) %>%
