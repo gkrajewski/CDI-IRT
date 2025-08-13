@@ -293,44 +293,23 @@ if (! is.finite(outer_loop_iteration)) {
 
 ## Step 1. Misfits removal
 
-First we repeatedly fit the model with `r quadtp` quadrature points,
-each time remove any misfits until we have fits for all items.
-The final model and the list of removed items are saved to
-"`r paste(filename_prefix, fitting_iteration, "model.RData", sep="_")`" file.
+We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally $100000$ cycles.
+Each time we remove items for which S-X² is significant with $p < 0.001$ and refit the model,
+until there are no items to remove.
 
-```{r misfits_removal, eval=FALSE}
+```{r misfits_removal, eval=inner_loop_run}
 model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                          output_file = paste(filename_prefix, fitting_iteration, "model.RData", sep="_"))
-```
-
-We print the model's basic summary.
-
-```{r model_summary}
-load(paste(filename_prefix, fitting_iteration, "model.RData", sep="_"))
+                         output_file = paste(filename_prefix, outer_loop_iteration, "model.RData", sep="_"))
 mod <- model[[1]]
 items_removed <- model[[2]]
 item_fit <- model[[3]]
 rm(model) # to save space
 
-mod
-```
-
-`r length(unlist(items_removed))` items were misfits in the process of model fitting.
-
-```{r items_removed_list}
-cdi %>% filter(item_id %in% unlist(items_removed))
-```
-
-They were removed in `r length(items_removed)` iterations before a model with no misfits was obtained
-(misfits removing function iterations, not to be confused with `fitting_iteration`
-equaled `r fitting_iteration`).
-
-```{r items_removed}
 if(length(items_removed)) {
   responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
   cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
-  if (nrow(cdi) == ncol(responses)) print(paste0(ncol(responses), " items left after removal."))
 }
+save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
 ```
 
 
