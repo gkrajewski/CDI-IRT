@@ -68,16 +68,26 @@ for (f in files) source(f)
 ```
 
 
+## Data loading
 
 There are three key objects needed for all the analyses done and presented here:
 
-1. `responses` matrix (administrations x items; 0/1)
-2. `cdi` data frame (items with their definitions & glosses)
+1. IRT model (`mod`)
+1. `responses` matrix (administrations x items; 0/1) used for the final model fitting
+2. `cdi` data frame (items with their definitions & glosses) used for the final model fitting
 3. `scores` data frame (participant information: raw scores & demographics)
 
 
+```{r data_loading}
+list.files(path = data_dir, pattern = "\\.RData$", full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_([0-9]+)_")) |>
+  as.numeric() |> na.omit() |> max() -> last_iteration
 
+scores <- read_csv(paste(filename_prefix, "scores.csv", sep="_"))
 
+load(paste(filename_prefix, last_iteration, "data.RData", sep="_"))
+load(paste(filename_prefix, last_iteration, "model.RData", sep="_"))
+  
 mod <- model[[1]]
 rm(model) # to save space
 ```
