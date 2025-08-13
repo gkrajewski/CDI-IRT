@@ -243,23 +243,33 @@ quadtp <- 600
 ```
 
 
-When fitting the IRT model, we eliminate items for which:
-
-1. the model doesn't fit (significant S-X²);
-2. the residuals are too closely related to another item's residuals (Cramer's $V > .5$).
-
-If point 2 applies this whole section has to be re**iterated**.
-In such a case modify `fitting_iteration` accordingly for future *kniting*.
-
 ```{r fitting_iteration, echo=TRUE}
 fitting_iteration <- 1
 # Model fitting
 
+Our fitting the IRT model is an iterative process that involves eliminating items and
+refitting the model in two loops, one within the other.
+
+1. In the "inner" loop we iteratively fit the model with `r quadtp` quadrature points,
+remove potential misfits (significant S-X²) and refit until we have fits for all items.
+
+2. Then we examine *local dependency* (Cramer's $V$) and, if there are items to remove,
+we go back to point 1 (this is the "outer" loop).
+
+The "inner" loop, given its simple and easy to set criterion (significance), is fully automatic
+and built into a custom function from "`r functions_dir`" directory. The "outer" loop is
+run manually. With the current criterion (Cramer's $V$ threshold) it could be made automatic
+as well but, given that this approach is likely suboptimal ([see below](more-on-the-issue)),
+we keep it as it is: if there are items to be removed in step 2, the code execution halts and
+rerunning previous chunks is suggested.
+
+Key intermediate results are saved to files in "`r data_dir`" directory with
+`r paste(language, scale)` and "outer" loop iteration number kept in filenames.
+If the document knits, the whole model fitting procedure has already succeeded and
+the summary is simply printed below.
+
 ```
 
-Some of the code chunks in this section may take time to run, so their
-output is saved to a file, with the **iteration** number attached
-to the filename. Rerun them only if needed.
 
 ## Step 1. Misfits removal
 
