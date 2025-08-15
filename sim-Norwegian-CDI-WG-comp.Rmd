@@ -102,127 +102,136 @@ params_IRT <- as.data.frame(coef(mod, simplify = TRUE, IRTpars = TRUE)$items)[1:
 cdi <- cbind(params_IRT, cdi)
 ```
 
-Scatterplot of difficulty by discrimination
+We use a scatterplot to plot item parameters
 (*we use English glosses;
-also, if we had categories we could add them as colours*):
+also, if we had categories we could add them as colours*).
 
-```{r item_parameters_plot, fig.width=12, fig.height=8}
+```{r item_parameters_plot}
 # ggplot(params_cdi, aes(b, a, colour=category, label=position)) +
 ggplot(cdi, aes(b, a, label=english_gloss)) +
   geom_text(alpha = 0.7, size=3) +
 #  geom_point(alpha = 0.3) +
-  xlim(-5, 3) +
-  ylim(.5, 5.5) +
+#  xlim(-5, 3) +
+#  ylim(.5, 5.5) +
   xlab("Difficulty") +
   ylab("Discrimination") +
 #  labs(colour = "Category") +
-#  labs(title = "Norwegian CDI:WG Comprehension") +
+  labs(title = paste(language, scale)) +
   theme(
-  panel.background = element_rect(fill = NA),
-  panel.grid.major = element_line(colour = "grey"),
-  legend.position = "top"
-)
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey"),
+    legend.position = "top"
+  )
 ```
 
-## Ability vs. raw scores
+## Ability vs raw scores
 
-We estimate ability levels for children from the sample based on the model.
+We compute ability estimates ($\theta$'s) for children from the sample.
+
+**NB:** For some datasets (models) the computation does not converge: should be looked into
+(does it have something to do with the chosen MAP method?).
 
 ```{r ability}
 scores <- cbind(scores, fscores(mod, method = "MAP", full.scores.SE = TRUE))
 ```
 
-*Explore the failed convergence? Does it have something to do with
-the chosen MAP method?*
+We plot estimated abilities ($\theta$'s) against raw scores (sums of checked items).
 
-Plot the estimated ability level against raw scores:
-
-```{r ability_scores_plot, fig.width=12, fig.height=8}
+```{r ability_scores_plot}
 ggplot(scores, aes(score, F1)) +
   geom_point() +
-  ylab("Ability level (theta)") +
-  xlab("Raw score (sum of checked items)") +
-  ylim(-4, 4) +
+  ylab(expression(theta)) +
+  xlab("Raw score") +
+  labs(title = paste(language, scale)) +
+#  ylim(-4, 4) +
   theme(
-  panel.background = element_rect(fill = NA),
-  panel.grid.major = element_line(colour = "lightgrey"),
-  text = element_text(size=16)
-)
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  )
 ```
 
 The scatterplot above shows that IRT estimates get "normalised",
-compared to raw scores, as can be seen on the following histograms
-(flat distribution for raw scores vs. bell-like distribution for *theta* estimates).
+compared to raw scores.
+The same can be seen comparing the following histograms.
 
-```{r, eval=FALSE}
+```{r ability_scores_histograms}
 # Should be in two separate chunks perhaps?
-hist(scores$score, xlab = "Raw sums", main = "")
-hist(scores$F1, xlab = "Estimated ability levels", main = "")
+hist(scores$score, xlab = "Raw score", main = paste(language, scale))
+hist(scores$F1, xlab = expression(theta), main = paste(language, scale))
 ```
 
 
-## Ability vs. SE
+## Ability vs SE
 
-Plot the ability level against SE:
+We plot ability estimates against their standard errors.
 
 ```{r ability_se_plot, fig.width=12, fig.height=8}
 ggplot(scores, aes(F1, SE_F1)) +
   geom_point(alpha = 0.3) +
-  xlab("Ability level (theta)") +
-  ylab("Standard error (SE)") +
-  labs(title = "Norwegian CDI:WG Comprehension") +
+  xlab(expression(theta)) +
+  ylab(expression(SE[theta])) +
+  labs(title = paste(language, scale)) +
   theme(
-  panel.background = element_rect(fill = NA),
-  panel.grid.major = element_line(colour = "lightgrey"),
-  text = element_text(size=16)
-)
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16),
+    axis.title = element_text(size=20)
+  )
 ```
 
-The scatterplot above shows increasing errors at both extremes of the ability level.
-Perhaps due to floor and ceiling effects. Errors higher than 0.1 highly unfrequent though:
+The scatterplot above shows increasing errors at both extremes of the ability level
+(perhaps due to floor and ceiling effects).
+We also plot the distribution of SEs.
 
 ```{r se_histogram, fig.width=12, fig.height=8}
-hist(scores$SE_F1, main = "Norwegian CDI:WS", sub = "Histogram of SE", xlab = "SE")
+hist(scores$SE_F1, main = paste(language, scale), xlab = expression(SE[theta]))
 ```
 
 We can export the data for crosslinguistic plotting/analysing.
 
 ```{r ability_se_export, eval=FALSE}
-write_csv(scores, "Data/scores_Norwegian-WS.csv")
+write_csv(scores, paste(filename_prefix, "thetas.csv", sep="_"))
 ```
 
 
-## SE and ability level vs. age
+## SE and ability level vs age
 
-The graph below shows that higher error rates are at and close to age range limits
-(which is sort of obvious, given the relation between theta and age).
-But it also shows that some outliers are at every age
-(though in the middle they are not as high).
+The graph below shows distribution of standard errors by age.
 
-```{r se_age_plot, fig.width=12, fig.height=8}
+```{r se_age_plot}
 ggplot(data.frame(age = as.factor(scores$age), SE = scores$SE_F1), aes(age, SE)) +
   geom_boxplot() +
   xlab("Age (months)") +
-  ylab("Standard error of ability estimations") +
-  labs(title = "Norwegian CDI:WS") +
+  ylab(expression(SE[theta])) +
+  labs(title = paste(language, scale)) +
   theme(
-  panel.background = element_rect(fill = NA),
-  panel.grid.major = element_line(colour = "lightgrey"),
-  text = element_text(size=16)
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
   )
 ```
 
-So let's see the relation between ability level and age (and first between raw scores and age).
-We add SE as colour.
+Now we plot the distribution of raw scores by age...
 
-```{r score_age_plot, fig.width=12, fig.height=8}
+```{r score_age_plot}
 ggplot(scores) +
-  geom_point(aes(age, score))
+  geom_point(aes(age, score)) +
+  xlab("Age (months)") +
+  ylab("Raw score") +
+  labs(title = paste(language, scale))
+```
+
+...and the distribution of ability by age with colour indicating the ability's SE.
+
+```{r ability_age_plot}
 ggplot(scores) +
   geom_point(aes(age, F1, col = SE_F1)) +
   scale_fill_gradient(low="green", high="red", aesthetics = "col") +
-  labs(y = "ability level", col = "SE") +
-  ylim(-4, 4)
+  xlab("Age (months)") +
+  ylab(expression(theta)) +
+  labs(title = paste(language, scale), col = expression(SE[theta]))
+#  ylim(-4, 4)
 ```
 
 
