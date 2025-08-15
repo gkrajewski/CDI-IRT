@@ -268,18 +268,21 @@ If the document knits, the whole model fitting procedure has already succeeded a
 the summary is simply printed below.
 
 ```{r fitting_settings}
-list.files(path = data_dir, pattern = "model.RData$", full.names = TRUE) |>
+list.files(path = data_dir, pattern = "data\\.RData$", full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_([0-9]+)_LD_")) |>
+  as.numeric() |> na.omit() |> max() -> outer_loop_LD_iteration
+list.files(path = data_dir, pattern = "data\\.RData$", full.names = TRUE) |>
   str_match(paste0(filename_prefix, "_([0-9]+)_")) |>
   as.numeric() |> na.omit() |> max() -> outer_loop_iteration
 inner_loop_run <- FALSE
 outer_loop_run <- TRUE
 if (! is.finite(outer_loop_iteration)) {
-  if (isTRUE(getOption("knitr.in.progress"))) {
-    stop("Stop! Run model fitting chunks below, before you can knit the document.")
-  } else {
-    outer_loop_iteration <- 1
-    inner_loop_run <- TRUE
-  }
+  outer_loop_iteration <- 1
+  inner_loop_run <- TRUE
+} else if (outer_loop_iteration == outer_loop_LD_iteration) {
+  inner_loop_run <- TRUE
+  load(paste(filename_prefix, outer_loop_iteration, "LD", "data.RData", sep="_"))
+  outer_loop_iteration <- outer_loop_iteration + 1
 } else {
   load(paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
   load(paste(filename_prefix, outer_loop_iteration, "model.RData", sep="_"))
@@ -298,19 +301,29 @@ We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally
 Each time we remove items for which S-X² is significant with $p < 0.001$ and refit the model,
 until there are no items to remove.
 
-```{r misfits_removal, eval=inner_loop_run}
-model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
-                         output_file = paste(filename_prefix, outer_loop_iteration, "model.RData", sep="_"))
-mod <- model[[1]]
-items_removed <- model[[2]]
-item_fit <- model[[3]]
-rm(model) # to save space
-
-if(length(items_removed)) {
-  responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
-  cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
+```{r misfits_removal, eval=inner_loop_run, message=TRUE}
+if(inner_loop_run) {
+  if (isTRUE(getOption("knitr.in.progress"))) {
+    stop(paste("Model fitting with misfits removal might take a long time to compute.",
+               "Run the code interactively to see progress updates and save the results.",
+               "Try knitting again afterwards."))
+  } else {
+    message(paste("This is 'outer' loop iteration", outer_loop_iteration))
+    flush.console()
+  }
+  model <- misfits_removal(responses=responses, quadtps=quadtp, NCYCLES=100000, p=0.001,
+                           output_file = paste(filename_prefix, outer_loop_iteration, "model.RData", sep="_"))
+  mod <- model[[1]]
+  items_removed <- model[[2]]
+  item_fit <- model[[3]]
+  rm(model) # to save space
+  
+  if(length(items_removed)) {
+    responses <- responses[, -which((colnames(responses) %in% unlist(items_removed)))]
+    cdi %>% filter(! item_id %in% unlist(items_removed)) -> cdi
+  }
+  save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
 }
-save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
 ```
 
 
@@ -322,10 +335,12 @@ For each pair of residuals we calculate Cramer's $V$, a measure of
 association between two dichotomous variables.
 
 ```{r local_dependence, eval=inner_loop_run, results='hide'}
-# I can't make the following code hide the results...
-residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
-residuals[lower.tri(residuals)] <- NA # upper diagonal contains signed Cramers V coefficients
-save(residuals, file = paste(filename_prefix, outer_loop_iteration, "residuals.RData", sep="_"))
+if(inner_loop_run) {
+  # I can't make the following code hide the results...
+  residuals <- residuals(mod, df.p=FALSE) # TODO: explore other parameters?
+  residuals[lower.tri(residuals)] <- NA # upper diagonal contains signed Cramers V coefficients
+  save(residuals, file = paste(filename_prefix, outer_loop_iteration, "residuals.RData", sep="_"))
+}
 ```
 
 ### More on the issue
@@ -418,11 +433,12 @@ unique(as.vector(indexes)) -> items_to_remove_ids
 if(length(items_to_remove_ids)) {
      responses[, -items_to_remove_ids] -> responses
      cdi[-items_to_remove_ids,] -> cdi
-     save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "data.RData", sep="_"))
-     outer_loop_iteration <- outer_loop_iteration + 1
-     stop(paste(length(items_to_remove_ids), "items are removed due to high local dependence.",
-                "Rerun chunks from Step 1 onwards. You can do it now but if you close and rerun",
-                "everything later, it should get you back on track anyway."))
+     save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "LD", "data.RData", sep="_"))
+     inner_loop_run <- FALSE
+     stop(paste(length(items_to_remove_ids), "items are removed due to their high local dependence.",
+                "Rerun the code to fit the model with the reduced set of items",
+                "(you can knit or run all chunks again or jump back to the beginning of",
+                "'Model fitting', if you do it interactively."))
 }
 ```
 
