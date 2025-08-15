@@ -49,7 +49,7 @@ if(version == "WS") {
 filename_prefix <- paste(data_dir, filename_prefix, sep="/")
 ```
 
-The following  libraries are loaded.
+The following libraries are loaded.
 
 ```{r libraries, echo=TRUE, results='hide'}
 library(beepr)
@@ -70,16 +70,16 @@ for (f in files) source(f)
 
 ## Data loading
 
-There are three key objects needed for all the analyses done and presented here:
+There are four key objects needed for all the analyses done and presented here:
 
 1. IRT model (`mod`)
-1. `responses` matrix (administrations x items; 0/1) used for the final model fitting
-2. `cdi` data frame (items with their definitions & glosses) used for the final model fitting
+1. `responses` matrix (administrations x items; 0/1), used for the final model (`mod`) fitting
+2. `cdi` data frame (items with their definitions & glosses), used for the final model (`mod`) fitting
 3. `scores` data frame (participant information: raw scores & demographics)
 
 
 ```{r data_loading}
-list.files(path = data_dir, pattern = "\\.RData$", full.names = TRUE) |>
+list.files(path = data_dir, pattern = "data\\.RData$", full.names = TRUE) |>
   str_match(paste0(filename_prefix, "_([0-9]+)_")) |>
   as.numeric() |> na.omit() |> max() -> last_iteration
 
