@@ -395,7 +395,7 @@ we use $V > .3$ as the threshold. We print their definitions, English glosses,
 and fit statistics (S-X²).
 
 ```{r local_dependence_positive, eval=outer_loop_run}
-cramers_V_df(arrayInd(which(residuals > 0.3), dim(residuals)), cdi, item_fit) %>%
+cramers_V_df(residuals, arrayInd(which(residuals > 0.3), dim(residuals)), cdi, item_fit) %>%
   select(- starts_with("item_id"))
 ```
 
@@ -403,7 +403,7 @@ In the same way we also print all pairs with *questionably* high negative
 values ($V < -.3$).
 
 ```{r local_dependence_negative, eval=outer_loop_run}
-cramers_V_df(arrayInd(which(residuals < -0.3), dim(residuals)), cdi, item_fit) %>%
+cramers_V_df(residuals, arrayInd(which(residuals < -0.3), dim(residuals)), cdi, item_fit) %>%
   select(- starts_with("item_id"))
 ```
 
@@ -412,7 +412,7 @@ we use $V > .5$ as the threshold.
 
 ```{r local_dependence_remove, eval=outer_loop_run}
 indexes <- arrayInd(which(residuals > 0.5), dim(residuals))
-cramers_V_df(indexes, cdi, item_fit) %>%
+cramers_V_df(residuals, indexes, cdi, item_fit) %>%
   select(- starts_with("item_id"))
 unique(as.vector(indexes)) -> items_to_remove_ids
 if(length(items_to_remove_ids)) {
