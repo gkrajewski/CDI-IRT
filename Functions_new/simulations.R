@@ -11,28 +11,28 @@ sim_se <- function(min_SEM, file = NULL) {
 report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
 
   #Obtain mean test length
-  tests_lengths <- laply(sim_results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(sim_results, function(x) length(x$items_answered))
   mean_length <- round(mean(tests_lengths), 1)
 
   #Obtain median test length
   median_length <- round(median(tests_lengths), 1)
 
   #Obtain thetas
-  thetas <- laply(sim_results, function(x) x$thetas)
+  thetas <- map_dbl(sim_results, "thetas")
 
   #Get correlation of thetas with full scores
   cor <- round(cor(thetas, fscores$F1), 3)
 
   #Get mean SE
-  meanSE <- round(mean(laply(sim_results, function(x) x$SE_thetas)), 3)
+  meanSE <- round(mean(map_dbl(sim_results, "SE_thetas")), 3)
 
   #Get reliability
   rel <- round(1 - meanSE**2, 3)
 
   #Get number of unused items
-  raw_responses <- laply(sim_results, function(x) x$raw_responses)
   items_used_nr <- length(which(apply(raw_responses, 2, function(x) any(!is.na(x)))))
   unused <- cdi_length - items_used_nr
+  raw_responses <- do.call(rbind, map(sim_results, "raw_responses"))
 
   return(paste("Mean length:", mean_length, " Median length:", median_length, " Correlation:", cor, " Mean SE:", meanSE, " Reliability:", rel, " Unused items:", unused))
 }
@@ -54,7 +54,7 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
   ###
 
   #Prepare cuts
-  tests_lengths <- laply(results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(results, function(x) length(x$items_answered))
   len <- nrow(cdi)
   if((len-1) %% bin_width < bin_width/2) {
     breaks <- c(seq(0, len-1-bin_width, by=bin_width), len-1, len)
@@ -77,7 +77,7 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
 }
 
 sim_length_distro_q <- function(results, q) {
-  tests_lengths <- laply(results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(results, function(x) length(x$items_answered))
   threshold <- quantile(tests_lengths, 1 - q)
   print(threshold)
   invisible(list(distro = tests_lengths, threshold = round(threshold)))

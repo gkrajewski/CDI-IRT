@@ -266,7 +266,7 @@ Based on the whole pool simulation we can examine decreasing average SE with eac
 (we plot it up to 100 items: no need for more).
 
 ```{r se_length_plot, fig.width=12, fig.height=8, warning=FALSE}
-SE_history <- laply(results_all, function(x) x$thetas_SE_history)
+SE_history <- map(results_all, "thetas_SE_history")
 meanSE_item <- as.data.frame(colMeans(SE_history))
 meanSE_item$item <- row.names(meanSE_item)
 colnames(meanSE_item) <- c("mean_SE", "item")
