@@ -153,7 +153,7 @@ responses %>% group_by(item_id) %>% filter(var(value) > 0) %>%
      pivot_wider(names_from = "item_id", values_from = "value", id_cols = "child_id") -> responses
 # Remove them from the instrument data:
 original_cdi_n <- nrow(cdi)
-cdi %>% filter(item_id %in% colnames(responses)) -> cdi
+cdi %>% filter(item_id %in% colnames(responses)) -> cdi -> cdi_full
 
 # Calculate scores and merge with demographics:
 responses %>% rowwise() %>% mutate(score = sum(across(starts_with("item_")))) %>%
@@ -273,6 +273,7 @@ list.files(path = data_dir, pattern = "data\\.RData$", full.names = TRUE) |>
   as.numeric() |> na.omit() |> max() -> outer_loop_iteration
 inner_loop_run <- FALSE
 outer_loop_run <- TRUE
+summary_run <- FALSE
 if (! is.finite(outer_loop_iteration)) {
   outer_loop_iteration <- 1
   inner_loop_run <- TRUE
@@ -424,39 +425,79 @@ we use $V > .5$ as the threshold.
 
 ```{r local_dependence_remove, eval=outer_loop_run}
 indexes <- arrayInd(which(residuals > 0.5), dim(residuals))
-cramers_V_df(residuals, indexes, cdi, item_fit) %>%
-  select(- starts_with("item_id"))
 unique(as.vector(indexes)) -> items_to_remove_ids
 if(length(items_to_remove_ids)) {
-     responses[, -items_to_remove_ids] -> responses
-     cdi[-items_to_remove_ids,] -> cdi
-     save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "LD", "data.RData", sep="_"))
-     inner_loop_run <- FALSE
-     stop(paste(length(items_to_remove_ids), "items are removed due to their high local dependence.",
-                "Rerun the code to fit the model with the reduced set of items",
-                "(you can knit or run all chunks again or jump back to the beginning of",
-                "'Model fitting', if you do it interactively."))
+  cramers_V_df(residuals, indexes, cdi, item_fit) %>%
+    select(- starts_with("item_id"))
+  responses[, -items_to_remove_ids] -> responses
+  cdi[-items_to_remove_ids,] -> cdi
+  save(cdi, responses, file = paste(filename_prefix, outer_loop_iteration, "LD", "data.RData", sep="_"))
+  inner_loop_run <- FALSE
+  stop(paste(length(items_to_remove_ids), "items are removed due to their high local dependence.",
+             "Rerun the code to fit the model with the reduced set of items",
+             "(you can knit or run all chunks again or jump back to the beginning of",
+             "'Model fitting', if you do it interactively."))
+} else {
+  summary_run <- TRUE
 }
 ```
 
-Number of removed items is `r length(items_to_remove_ids)`.
 
-If it's **greater than zero** we need to increase the `fitting_iteration` number
-by one (see chunk below) and repeat everything from
-the [Misfits removal](#misfits-removal) section onwards
-(also don't forget to update the `fitting_iteration` chunk right before
-[Misfits removal](#misfits-removal)).
+# Summary
 
-```{r fitting_iteration_increment, eval=FALSE, echo=TRUE}
-fitting_iteration <- fitting_iteration + 1
+We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally $100000$ cycles.
+
+```{r summary_setup}
+map(1 : outer_loop_iteration, function(x) {
+  load(paste(filename_prefix, x, "model.RData", sep = "_"))
+  return(list(model = model[[1]], items_removed = model[[2]]))
+}) -> fitting_summary
+final_model <- fitting_summary[[length(fitting_summary)]]$model
+misfits_removed <- lapply(fitting_summary, `[[`, "items_removed")
+
+map(misfits_removed, function(x) {
+  imap(x, function(y, idy) {
+    tibble(item_id = y, inner_loop = idy)
+  }) %>% list_rbind() %>% left_join(cdi_full) %>% select(- item_id)
+}) -> misfits_removed
+
+if(outer_loop_iteration > 1) {
+  ld <- new.env()
+  load(paste(filename_prefix, outer_loop_iteration - 1, "residuals.RData", sep = "_"))
+  load(paste(filename_prefix, outer_loop_iteration - 1, "data.RData", sep = "_"), envir = ld)
+  cramers_V_df(residuals, arrayInd(which(residuals > 0.5), dim(residuals)), ld$cdi) %>%
+    select(- starts_with("item_id")) -> ld_removed
+}
 ```
 
-If number of removed items is zero we're done.
-The final data frame of `r paste(language, scale)` items retained
-after model fitting is exported for future use to
-`r paste(filename_prefix, fitting_iteration, "items.csv", sep="_")`
+Below is a summary of the whole iterative item removal procedure.
 
-```{r items_exporting}
-cdi %>% write_csv(paste(filename_prefix, fitting_iteration, "items.csv", sep="_"))
+```{r misfits_removed, results='asis'}
+i_max <- length(misfits_removed)
+for(i in 1 : i_max) {
+  if(i < i_max) {
+    cat("## *Outer loop* iteration", i)
+    cat("\n\n### Step 1. Misfits removal\n\n")
+    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
+    print(knitr::kable(misfits_removed[[i]]))
+  } else {
+    cat("\n\n### Step 2. High *local dependence* items removal\n\n")
+    cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
+    print(knitr::kable(ld_removed))
+    cat("## *Outer loop* iteration", i)
+    cat("\n\n### Step 1. Misfits removal\n\n")
+    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
+    print(knitr::kable(misfits_removed[[i]]))
+  }
+}
+```
+
+
+## Final model
+
+This is the final model's basic summary.
+
+```{r final_model}
+final_model
 ```
 
