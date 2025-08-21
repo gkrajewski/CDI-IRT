@@ -45,7 +45,7 @@ report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
   invisible(list(mean_length, median_length, cor_full, cor_score, meanSE, reliability, items_unused_count))
 }
 
-plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 100) / 100)) {
+plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 1000) / 1000)) {
 
   ###
   # Plots a histogram of the distribution of administration length (number of items)
@@ -79,7 +79,7 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
     geom_bar(stat = "identity") +
     geom_text(aes(label = Freq), vjust = -0.3, size=pfs) +
     labs(title = title) +
-    theme_pubclean() +
+    theme_minimal() +
     ylim(0, 100) +
     theme(text = element_text(size=16), axis.text.x = element_text(size=xfs))
 }
