@@ -32,6 +32,12 @@ scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Ge
 
 Plot titles, file names etc. are based on them.
 
+Please make sure the subtitle of this document and the filename are consistent with these settings
+(language and scale). Other than that do not change the code or text in the document
+(unless you know what you are doing). No code modifications should be required to successfully
+run the code (and eventually knit the document),
+as long as you knitted the corresponding `fit-*.Rmd` file first.
+
 ```{r analyses_setup}
 # Additional setup:
 functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
