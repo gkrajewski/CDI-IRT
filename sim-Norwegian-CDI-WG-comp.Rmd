@@ -17,8 +17,8 @@ knitr::opts_chunk$set(include = TRUE,
                       message = FALSE,
                       warning = FALSE,
                       fig.align = "center",
-                      fig.width = 6,
-                      fig.height = 4)
+                      fig.width = 12,
+                      fig.height = 8)
 ```
 
 # Setup
@@ -238,44 +238,96 @@ ggplot(scores) +
 # Simulations
 
 ```{r prepare_sim}
-params <- as.data.frame(coef(mod, simplify = T)$items)[1:2]
+params <- as.data.frame(coef(mod, simplify = TRUE)$items)[1:2]
 mo <- generate.mirt_object(params, '2PL')
 cl <- makeCluster(detectCores())
 ```
 
+At the moment the simulations we run help us to decide CAT stopping criteria,
+max. $SE_{\theta}$ accepted and max. number of items allowed. We first observe
+how adding items decreases the mean $SE_{\theta}$ and we identify the $SE_{\theta}$
+value, for which adding another item doesn't result in a *substantial drop* anymore.
+Then we run simulations with that value as a stopping crietrion to see
+how many items are needed to reach this criterion for a *reasonably high*
+proportion of administrations.
+
+```{r stop_criteria_parameters, echo=TRUE}
+SE_delta <- 0.001 # non-substantial drop in mean SE
+q_fail <- .2 # reasonably low proportion of administrations not reaching desired SE
+```
+
+
 ## Whole pool for everyone
 
-```{r sim_all, eval=FALSE}
-message(paste("Starting simulation @ ", Sys.time()))
-results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
-                       local_pattern = responses, cl = cl, design = list(min_items = ncol(responses)))
-# results_all1 <- mirtCAT(mo = mod, method = "MAP", criteria = "MI", start_item = "MI",
-#                       local_pattern = responses_r, cl = cl, design = list(min_items = ncol(responses_r)))
-save(results_all, file = "Data/norwegian_ws_sim_all.Rdata")
-message(paste("Finished @ ", Sys.time()))
-beep()
+We simulate CAT administrations without any stopping criteria (and save the simulation
+results to "`r paste(filename_prefix, "sim_all.RData", sep = "_")`" for later reuse).
+
+```{r sim_all, message=TRUE}
+list.files(path = data_dir, pattern = "sim_all\\.RData$", full.names = TRUE) |>
+  str_match(paste(filename_prefix, "sim_all\\.RData$", sep = "_")) |>
+  na.omit() -> sim_all_file
+if(length(sim_all_file)) {
+  load(sim_all_file)
+} else if(isTRUE(getOption("knitr.in.progress"))) {
+  stop(paste("Simulations might take a long time to compute.",
+             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
+             "you will see progress updates in the console).",
+             "The results will be saved to a file and you can try knitting again afterwards."))
+} else {
+  message(paste("Starting simulation with no STOP criteria @", Sys.time()))
+  results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI", cl = cl,
+                         local_pattern = responses, design = list(min_items = ncol(responses)),
+                         progress = TRUE)
+  flush.console()
+  save(results_all, file = paste(filename_prefix, "sim_all.RData", sep = "_"))
+  message(paste("Finished @ ", Sys.time()))
+  beep()
+}
+report_sim_results(results_all, scores)
 ```
 
+Based on the whole pool simulation we can examine decreasing average $SE_{\theta}$ with each item.
 
-```{r sim_all_report}
-load("Data/norwegian_ws_sim_all.Rdata")
-report_sim_results(results_all, select(scores, contains("F1")))
-```
-
-Based on the whole pool simulation we can examine decreasing average SE with each item
-(we plot it up to 100 items: no need for more).
-
-```{r se_length_plot, fig.width=12, fig.height=8, warning=FALSE}
-SE_history <- map(results_all, "thetas_SE_history")
-meanSE_item <- as.data.frame(colMeans(SE_history))
+```{r mean_se}
+SE_history <- drop(simplify2array(map(results_all, "thetas_SE_history")))
+meanSE_item <- as.data.frame(rowMeans(SE_history))
 meanSE_item$item <- row.names(meanSE_item)
-colnames(meanSE_item) <- c("mean_SE", "item")
-meanSE_item$item <- as.numeric(meanSE_item$item)
+colnames(meanSE_item) <- c("mean_SE", "test_length")
+meanSE_item$test_length <- as.numeric(meanSE_item$test_length)
+```
 
-ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
-  xlab ("Test length") +
-  ylab ("Mean SE") +
-  labs(title = "Norwegian CDI:WS") +
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r mean_se_export, eval=FALSE}
+write_csv(meanSE_item, paste(filename_prefix, "meanSE.csv", sep = "_"))
+```
+
+We want to find the first value for which the difference between it and the next one
+is less than `r SE_delta`.
+
+```{r se_threshold}
+se_plateau <- meanSE_item %>%
+  mutate(diff = c(NA, diff(mean_SE))) %>%
+  filter(!is.na(diff)) %>%
+  filter(abs(diff) < SE_delta) %>%
+  slice(1)
+se_threshold <- se_plateau$mean_SE
+se_plateau
+```
+
+We plot the average $SE_{\theta}$ by each consecutive item
+(max. 100: highly unlikely not to reach the plateau by then)
+and add red dashed lines marking the above.
+
+```{r se_length_plot}
+ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = se_threshold, linetype = "dashed", colour = "red") +
+  geom_vline(xintercept = se_plateau$test_length, linetype = "dashed", colour = "red") +
+  labs(title = paste(language, scale),
+       x = "Test length",
+       y = expression("Mean" ~ SE[theta])) +
   theme(
     panel.background = element_rect(fill = NA),
     panel.grid.major = element_line(colour = "lightgrey"),
@@ -285,51 +337,39 @@ ggline(meanSE_item, x = "item", y = "mean_SE", numeric.x.axis = TRUE) +
   scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
 ```
 
-We can export the data for crosslinguistic plotting/analysing.
 
-```{r mean_se_export, eval=FALSE}
-write_csv(meanSE_item, "Data/meanSE_Norwegian-WS.csv")
+## $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000` stop criterion
+
+We simulate CAT again, this time stopping each administration when its
+$SE_{\theta}$ reaches `r ceiling(se_threshold * 1000) / 1000`.
+
+```{r sim_se, message=TRUE}
+se_precision <- nchar(strsplit(as.character(SE_delta), "\\.")[[1]][2])
+se_string <- substr(str_split_i(se_threshold, "\\.", i=2), 0, se_precision)
+list.files(path = data_dir, pattern = paste0("sim_", se_string, "\\.RData$"), full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_sim_", se_string, "\\.RData$")) |>
+  na.omit() -> sim_se_file
+if(length(sim_se_file)) {
+  load(sim_se_file)
+} else if(isTRUE(getOption("knitr.in.progress"))) {
+  stop(paste("Simulations might take a long time to compute.",
+             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
+             "you will see progress updates in the console).",
+             "The results will be saved to a file and you can try knitting again afterwards."))
+} else {
+  results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
+}
+report_sim_results(results, scores)
+plot_length(results, paste(language, scale), se_threshold, 30)
 ```
 
+We want to find the number of items needed to leave only `r q_fail` of all
+administrations not reaching $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000`.
 
-## SE = 0.1 stop criterion
-
-The plot above shows that we need 30-40 items to reach SE=.1 on average.
-Let's try a simulation.
-
-```{r se1, eval=FALSE}
-results_SE1 <- sim_se(0.1, file = "Data/norwegian_ws_sim_se1.RData")
+```{r length_threshold}
+sim_length_distro_q(results, q_fail)
 ```
 
-
-```{r se1_report}
-load("Data/norwegian_ws_sim_se1.RData")
-results_SE1 <- results
-report_sim_results(results_SE1, select(scores, contains("F1")))
-```
-
-
-```{r se1_plot, fig.width=12, fig.height=8}
-plot_length(results_SE1, "Norwegian CDI:WS", 0.1)
-```
-
-## SE = 0.15 stop criterion
-
-```{r se15, eval=FALSE}
-results_SE15 <- sim_se(0.15, file = "Data/norwegian_ws_sim_se15.RData")
-```
-
-
-```{r se15_report}
-load("Data/norwegian_ws_sim_se15.RData")
-results_SE15 <- results
-report_sim_results(results_SE15, select(scores, contains("F1")))
-```
-
-
-```{r se15_plot, fig.width=12, fig.height=8}
-plot_length(results_SE15, "Norwegian CDI:WS", 0.15)
-```
 
 
 ## Different start thetas
