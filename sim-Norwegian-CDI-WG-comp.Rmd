@@ -40,7 +40,7 @@ as long as you knitted the corresponding `fit-*.Rmd` file first.
 
 ```{r analyses_setup}
 # Additional setup:
-functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
+functions_dir <- "Functions"
 data_dir <- "Data"
 
 version <- strsplit(scale, " ")[[1]]
