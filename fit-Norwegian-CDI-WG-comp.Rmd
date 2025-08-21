@@ -493,15 +493,21 @@ for(i in 1 : i_max) {
       cat("No items removed.\n\n")
     }
   } else {
-    cat("\n\n### Step 2. High *local dependence* items removal\n\n")
-    cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
-    print(knitr::kable(ld_removed))
+    if(exists("ld_removed")) {
+      cat("\n\n### Step 2. High *local dependence* items removal\n\n")
+      cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
+      print(knitr::kable(ld_removed))
+    }
     cat("## *Outer loop* iteration", i)
     cat("\n\n### Step 1. Misfits removal\n\n")
     if(length(misfits_removed[[i]])) {
       cat(nrow(misfits_removed[[i]]), "item(s) removed in", max(misfits_removed[[i]]$inner_loop), "iteration(s).\n\n")
       print(knitr::kable(misfits_removed[[i]]))
     } else {
+      cat("No items removed.\n\n")
+    }
+    if(! exists("ld_removed")) {
+      cat("\n\n### Step 2. High *local dependence* items removal\n\n")
       cat("No items removed.\n\n")
     }
   }
