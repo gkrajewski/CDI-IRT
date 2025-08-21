@@ -371,23 +371,29 @@ sim_length_distro_q(results, q_fail)
 ```
 
 
+# Config files preparation
 
-## Different start thetas
+For the CAT app to work we need two files, `items.csv` with parameter estimates and
+a question for each item, and `startThetas.csv` with $\theta_0$, either a single value
+or different values for different (combinations of) demographic (age and/or sex) variables.
 
-```{r different_start_thetas, eval=FALSE, message=FALSE, echo=FALSE}
-start_thetas <- get_start_thetas(scores, "age", "sex")
-fscores_aggr <- start_thetas[[1]]
-start_thetas <- start_thetas[[2]]
-```
+$\theta_0$ values may be "corrected" (i.e., decreased by a set constant) to make it more
+likely for first items to be answered positively.
 
-TODO: Simulations with different start thetas when stop criterion would be specified
+"Questions" for individual items may be used to display for each item its category, but
+they may also be more specific (which is important for gestures but might be helpful
+to keep track of the comprehension/production distinction as well).
 
-# Input files preparation
+The code chunk below, if run, creates two files:
+"`r paste(filename_prefix, "items.csv", sep = "_")`" and
+"`r paste(filename_prefix, "startThetas.csv", sep = "_")`".
 
-```{r eval=FALSE}
-prepare_input_files(params, cdi$item_definition, fscores_aggr,
-                    question = "CATEGORY LABEL here", group = "comp", id = cdi$item_id,
-                    file1 = "items-Norwegian-WS.csv", file2 = "startThetas-Norwegian-WS.csv")
+```{r config_files, eval=FALSE, echo=TRUE}
+start_thetas <- get_start_thetas(scores, "age", "sex", correction=.5)[[1]]
+prepare_config_files(params, cdi$item_definition, fscores_aggr,
+                     question = "CATEGORY LABEL here", group = subscale, id = cdi$item_id,
+                     file1 = paste(filename_prefix, "items.csv", sep = "_"),
+                     file2 = paste(filename_prefix, "startThetas.csv", sep = "_"))
 ```
 
 
