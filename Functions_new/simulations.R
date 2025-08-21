@@ -1,7 +1,8 @@
 sim_se <- function(min_SEM, file = NULL) {
-  message(paste("Starting simulation with SE <", min_SEM, "@", Sys.time()))
+  message(paste("Starting simulation with SE <", min_SEM, "as STOP criterion @", Sys.time()))
   results <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
-                         local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM))
+                     local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM),
+                     progress = TRUE)
   if(! is.null(file)) save(results, file = file)
   message(paste("Finished @", Sys.time()))
   beep()
@@ -20,21 +21,28 @@ report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
   #Obtain thetas
   thetas <- map_dbl(sim_results, "thetas")
 
-  #Get correlation of thetas with full scores
-  cor <- round(cor(thetas, fscores$F1), 3)
+  #Get correlation of thetas with raw scores
+  cor_score <- round(cor(thetas, fscores$score), 3)
+
+  #Get correlation of thetas with full thetas
+  cor_full <- round(cor(thetas, fscores$F1), 3)
 
   #Get mean SE
   meanSE <- round(mean(map_dbl(sim_results, "SE_thetas")), 3)
 
   #Get reliability
-  rel <- round(1 - meanSE**2, 3)
+  reliability <- round(1 - meanSE**2, 3)
 
   #Get number of unused items
-  items_used_nr <- length(which(apply(raw_responses, 2, function(x) any(!is.na(x)))))
-  unused <- cdi_length - items_used_nr
   raw_responses <- do.call(rbind, map(sim_results, "raw_responses"))
+  items_used_count <- sum(apply(raw_responses, 2, function(x) any(!is.na(x))))
+  items_unused_count <- cdi_length - items_used_count
 
-  return(paste("Mean length:", mean_length, " Median length:", median_length, " Correlation:", cor, " Mean SE:", meanSE, " Reliability:", rel, " Unused items:", unused))
+  cat(paste0("Mean length: ", mean_length, "; Median length: ", median_length, "\nCorrelation with all-item thetas: ", cor_full,
+              ", with raw scores: ", cor_score,"\nMean SE: ", meanSE, "; Reliability: ", reliability,
+              "\nNever used items: ", items_unused_count, " out of all ", cdi_length))
+
+  invisible(list(mean_length, median_length, cor_full, cor_score, meanSE, reliability, items_unused_count))
 }
 
 plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 100) / 100)) {
