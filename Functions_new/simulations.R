@@ -1,7 +1,8 @@
 sim_se <- function(min_SEM, file = NULL) {
-  message(paste("Starting simulation with SE <", min_SEM, "@", Sys.time()))
+  message(paste("Starting simulation with SE <", min_SEM, "as STOP criterion @", Sys.time()))
   results <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
-                         local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM))
+                     local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM),
+                     progress = TRUE)
   if(! is.null(file)) save(results, file = file)
   message(paste("Finished @", Sys.time()))
   beep()
@@ -11,33 +12,40 @@ sim_se <- function(min_SEM, file = NULL) {
 report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
 
   #Obtain mean test length
-  tests_lengths <- laply(sim_results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(sim_results, function(x) length(x$items_answered))
   mean_length <- round(mean(tests_lengths), 1)
 
   #Obtain median test length
   median_length <- round(median(tests_lengths), 1)
 
   #Obtain thetas
-  thetas <- laply(sim_results, function(x) x$thetas)
+  thetas <- map_dbl(sim_results, "thetas")
 
-  #Get correlation of thetas with full scores
-  cor <- round(cor(thetas, fscores$F1), 3)
+  #Get correlation of thetas with raw scores
+  cor_score <- round(cor(thetas, fscores$score), 3)
+
+  #Get correlation of thetas with full thetas
+  cor_full <- round(cor(thetas, fscores$F1), 3)
 
   #Get mean SE
-  meanSE <- round(mean(laply(sim_results, function(x) x$SE_thetas)), 3)
+  meanSE <- round(mean(map_dbl(sim_results, "SE_thetas")), 3)
 
   #Get reliability
-  rel <- round(1 - meanSE**2, 3)
+  reliability <- round(1 - meanSE**2, 3)
 
   #Get number of unused items
-  raw_responses <- laply(sim_results, function(x) x$raw_responses)
-  items_used_nr <- length(which(apply(raw_responses, 2, function(x) any(!is.na(x)))))
-  unused <- cdi_length - items_used_nr
+  raw_responses <- do.call(rbind, map(sim_results, "raw_responses"))
+  items_used_count <- sum(apply(raw_responses, 2, function(x) any(!is.na(x))))
+  items_unused_count <- cdi_length - items_used_count
 
-  return(paste("Mean length:", mean_length, " Median length:", median_length, " Correlation:", cor, " Mean SE:", meanSE, " Reliability:", rel, " Unused items:", unused))
+  cat(paste0("Mean length: ", mean_length, "; Median length: ", median_length, "\nCorrelation with all-item thetas: ", cor_full,
+              ", with raw scores: ", cor_score,"\nMean SE: ", meanSE, "; Reliability: ", reliability,
+              "\nNever used items: ", items_unused_count, " out of all ", cdi_length))
+
+  invisible(list(mean_length, median_length, cor_full, cor_score, meanSE, reliability, items_unused_count))
 }
 
-plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 100) / 100)) {
+plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 1000) / 1000)) {
 
   ###
   # Plots a histogram of the distribution of administration length (number of items)
@@ -54,7 +62,7 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
   ###
 
   #Prepare cuts
-  tests_lengths <- laply(results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(results, function(x) length(x$items_answered))
   len <- nrow(cdi)
   if((len-1) %% bin_width < bin_width/2) {
     breaks <- c(seq(0, len-1-bin_width, by=bin_width), len-1, len)
@@ -71,13 +79,13 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
     geom_bar(stat = "identity") +
     geom_text(aes(label = Freq), vjust = -0.3, size=pfs) +
     labs(title = title) +
-    theme_pubclean() +
+    theme_minimal() +
     ylim(0, 100) +
     theme(text = element_text(size=16), axis.text.x = element_text(size=xfs))
 }
 
 sim_length_distro_q <- function(results, q) {
-  tests_lengths <- laply(results, function(x) length(x$items_answered))
+  tests_lengths <- map_int(results, function(x) length(x$items_answered))
   threshold <- quantile(tests_lengths, 1 - q)
   print(threshold)
   invisible(list(distro = tests_lengths, threshold = round(threshold)))

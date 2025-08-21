@@ -1,0 +1,406 @@
+---
+title: "CAT simulations"
+subtitle: "Norwegian CDI:WG Comprehension"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE,
+                      echo = FALSE,
+                      eval = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = "center",
+                      fig.width = 12,
+                      fig.height = 8)
+```
+
+# Setup
+
+Below are the settings for the analyses reported in this document.
+
+```{r settings, echo = TRUE}
+language <- "Norwegian"
+scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
+```
+
+Plot titles, file names etc. are based on them.
+
+Please make sure the subtitle of this document and the filename are consistent with these settings
+(language and scale). Other than that do not change the code or text in the document
+(unless you know what you are doing). No code modifications should be required to successfully
+run the code (and eventually knit the document),
+as long as you knitted the corresponding `fit-*.Rmd` file first.
+
+```{r analyses_setup}
+# Additional setup:
+functions_dir <- "Functions_new" # "Functions_new" keeps updated function definition
+data_dir <- "Data"
+
+version <- strsplit(scale, " ")[[1]]
+subscale <- "Prod"
+if(length(version) > 1) substr(version[2], 1, 4) -> subscale
+version <- version[1]
+if(version == "WS") {
+  filename_prefix <- tolower(paste(language, version, sep="_"))
+} else {
+  filename_prefix <- tolower(paste(language, version, subscale, sep="_"))
+}
+filename_prefix <- paste(data_dir, filename_prefix, sep="/")
+```
+
+The following libraries are loaded.
+
+```{r libraries, echo=TRUE, results='hide'}
+library(beepr)
+library(tidyverse)
+library(mirtCAT)
+library(parallel)
+#library(ggpubr)
+```
+
+Functions from "`r functions_dir`" directory are sourced.
+Data are expected and saved in "`r data_dir`" directory.
+ 
+```{r functions}
+files <- list.files(path = functions_dir, pattern = "\\.R$", full.names = TRUE)
+for (f in files) source(f)
+```
+
+
+## Data loading
+
+There are four key objects needed for all the analyses done and presented here:
+
+1. IRT model (`mod`)
+1. `responses` matrix (administrations x items; 0/1), used for the final model (`mod`) fitting
+2. `cdi` data frame (items with their definitions & glosses), used for the final model (`mod`) fitting
+3. `scores` data frame (participant information: raw scores & demographics)
+
+
+```{r data_loading}
+list.files(path = data_dir, pattern = "data\\.RData$", full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_([0-9]+)_")) |>
+  as.numeric() |> na.omit() |> max() -> last_iteration
+
+scores <- read_csv(paste(filename_prefix, "scores.csv", sep="_"))
+
+load(paste(filename_prefix, last_iteration, "data.RData", sep="_"))
+load(paste(filename_prefix, last_iteration, "model.RData", sep="_"))
+  
+mod <- model[[1]]
+rm(model) # to save space
+```
+
+
+# Model exploration
+
+## IRT items parameters
+
+```{r item_parameters}
+params_IRT <- as.data.frame(coef(mod, simplify = TRUE, IRTpars = TRUE)$items)[1:2]
+cdi <- cbind(params_IRT, cdi)
+```
+
+We use a scatterplot to plot item parameters
+(*we use English glosses;
+also, if we had categories we could add them as colours*).
+
+```{r item_parameters_plot}
+# ggplot(params_cdi, aes(b, a, colour=category, label=position)) +
+ggplot(cdi, aes(b, a, label=english_gloss)) +
+  geom_text(alpha = 0.7, size=3) +
+#  geom_point(alpha = 0.3) +
+#  xlim(-5, 3) +
+#  ylim(.5, 5.5) +
+  xlab("Difficulty") +
+  ylab("Discrimination") +
+#  labs(colour = "Category") +
+  labs(title = paste(language, scale)) +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "grey"),
+    legend.position = "top"
+  )
+```
+
+## Ability vs raw scores
+
+We compute ability estimates ($\theta$'s) for children from the sample.
+
+**NB:** For some datasets (models) the computation does not converge: should be looked into
+(does it have something to do with the chosen MAP method?).
+
+```{r ability}
+scores <- cbind(scores, fscores(mod, method = "MAP", full.scores.SE = TRUE))
+```
+
+We plot estimated abilities ($\theta$'s) against raw scores (sums of checked items).
+
+```{r ability_scores_plot}
+ggplot(scores, aes(score, F1)) +
+  geom_point() +
+  ylab(expression(theta)) +
+  xlab("Raw score") +
+  labs(title = paste(language, scale)) +
+#  ylim(-4, 4) +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  )
+```
+
+The scatterplot above shows that IRT estimates get "normalised",
+compared to raw scores.
+The same can be seen comparing the following histograms.
+
+```{r ability_scores_histograms}
+# Should be in two separate chunks perhaps?
+hist(scores$score, xlab = "Raw score", main = paste(language, scale))
+hist(scores$F1, xlab = expression(theta), main = paste(language, scale))
+```
+
+
+## Ability vs SE
+
+We plot ability estimates against their standard errors.
+
+```{r ability_se_plot, fig.width=12, fig.height=8}
+ggplot(scores, aes(F1, SE_F1)) +
+  geom_point(alpha = 0.3) +
+  xlab(expression(theta)) +
+  ylab(expression(SE[theta])) +
+  labs(title = paste(language, scale)) +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16),
+    axis.title = element_text(size=20)
+  )
+```
+
+The scatterplot above shows increasing errors at both extremes of the ability level
+(perhaps due to floor and ceiling effects).
+We also plot the distribution of SEs.
+
+```{r se_histogram, fig.width=12, fig.height=8}
+hist(scores$SE_F1, main = paste(language, scale), xlab = expression(SE[theta]))
+```
+
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r ability_se_export, eval=FALSE}
+write_csv(scores, paste(filename_prefix, "thetas.csv", sep="_"))
+```
+
+
+## SE and ability level vs age
+
+The graph below shows distribution of standard errors by age.
+
+```{r se_age_plot}
+ggplot(data.frame(age = as.factor(scores$age), SE = scores$SE_F1), aes(age, SE)) +
+  geom_boxplot() +
+  xlab("Age (months)") +
+  ylab(expression(SE[theta])) +
+  labs(title = paste(language, scale)) +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  )
+```
+
+Now we plot the distribution of raw scores by age...
+
+```{r score_age_plot}
+ggplot(scores) +
+  geom_point(aes(age, score)) +
+  xlab("Age (months)") +
+  ylab("Raw score") +
+  labs(title = paste(language, scale))
+```
+
+...and the distribution of ability by age with colour indicating the ability's SE.
+
+```{r ability_age_plot}
+ggplot(scores) +
+  geom_point(aes(age, F1, col = SE_F1)) +
+  scale_fill_gradient(low="green", high="red", aesthetics = "col") +
+  xlab("Age (months)") +
+  ylab(expression(theta)) +
+  labs(title = paste(language, scale), col = expression(SE[theta]))
+#  ylim(-4, 4)
+```
+
+
+# Simulations
+
+```{r prepare_sim}
+params <- as.data.frame(coef(mod, simplify = TRUE)$items)[1:2]
+mo <- generate.mirt_object(params, '2PL')
+cl <- makeCluster(detectCores())
+```
+
+At the moment the simulations we run help us to decide CAT stopping criteria,
+max. $SE_{\theta}$ accepted and max. number of items allowed. We first observe
+how adding items decreases the mean $SE_{\theta}$ and we identify the $SE_{\theta}$
+value, for which adding another item doesn't result in a *substantial drop* anymore.
+Then we run simulations with that value as a stopping crietrion to see
+how many items are needed to reach this criterion for a *reasonably high*
+proportion of administrations.
+
+```{r stop_criteria_parameters, echo=TRUE}
+SE_delta <- 0.001 # non-substantial drop in mean SE
+q_fail <- .2 # reasonably low proportion of administrations not reaching desired SE
+```
+
+
+## Whole pool for everyone
+
+We simulate CAT administrations without any stopping criteria (and save the simulation
+results to "`r paste(filename_prefix, "sim_all.RData", sep = "_")`" for later reuse).
+
+```{r sim_all, message=TRUE}
+list.files(path = data_dir, pattern = "sim_all\\.RData$", full.names = TRUE) |>
+  str_match(paste(filename_prefix, "sim_all\\.RData$", sep = "_")) |>
+  na.omit() -> sim_all_file
+if(length(sim_all_file)) {
+  load(sim_all_file)
+} else if(isTRUE(getOption("knitr.in.progress"))) {
+  stop(paste("Simulations might take a long time to compute.",
+             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
+             "you will see progress updates in the console).",
+             "The results will be saved to a file and you can try knitting again afterwards."))
+} else {
+  message(paste("Starting simulation with no STOP criteria @", Sys.time()))
+  results_all <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI", cl = cl,
+                         local_pattern = responses, design = list(min_items = ncol(responses)),
+                         progress = TRUE)
+  flush.console()
+  save(results_all, file = paste(filename_prefix, "sim_all.RData", sep = "_"))
+  message(paste("Finished @ ", Sys.time()))
+  beep()
+}
+report_sim_results(results_all, scores)
+```
+
+Based on the whole pool simulation we can examine decreasing average $SE_{\theta}$ with each item.
+
+```{r mean_se}
+SE_history <- drop(simplify2array(map(results_all, "thetas_SE_history")))
+meanSE_item <- as.data.frame(rowMeans(SE_history))
+meanSE_item$item <- row.names(meanSE_item)
+colnames(meanSE_item) <- c("mean_SE", "test_length")
+meanSE_item$test_length <- as.numeric(meanSE_item$test_length)
+```
+
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r mean_se_export, eval=FALSE}
+write_csv(meanSE_item, paste(filename_prefix, "meanSE.csv", sep = "_"))
+```
+
+We want to find the first value for which the difference between it and the next one
+is less than `r SE_delta`.
+
+```{r se_threshold}
+se_plateau <- meanSE_item %>%
+  mutate(diff = c(NA, diff(mean_SE))) %>%
+  filter(!is.na(diff)) %>%
+  filter(abs(diff) < SE_delta) %>%
+  slice(1)
+se_threshold <- se_plateau$mean_SE
+se_plateau
+```
+
+We plot the average $SE_{\theta}$ by each consecutive item
+(max. 100: highly unlikely not to reach the plateau by then)
+and add red dashed lines marking the above.
+
+```{r se_length_plot}
+ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = se_threshold, linetype = "dashed", colour = "red") +
+  geom_vline(xintercept = se_plateau$test_length, linetype = "dashed", colour = "red") +
+  labs(title = paste(language, scale),
+       x = "Test length",
+       y = expression("Mean" ~ SE[theta])) +
+  theme(
+    panel.background = element_rect(fill = NA),
+    panel.grid.major = element_line(colour = "lightgrey"),
+    text = element_text(size=16)
+  ) + 
+  scale_y_continuous(breaks = c(0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1)) + 
+  scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
+```
+
+
+## $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000` stop criterion
+
+We simulate CAT again, this time stopping each administration when its
+$SE_{\theta}$ reaches `r ceiling(se_threshold * 1000) / 1000`.
+
+```{r sim_se, message=TRUE}
+se_precision <- nchar(strsplit(as.character(SE_delta), "\\.")[[1]][2])
+se_string <- substr(str_split_i(se_threshold, "\\.", i=2), 0, se_precision)
+list.files(path = data_dir, pattern = paste0("sim_", se_string, "\\.RData$"), full.names = TRUE) |>
+  str_match(paste0(filename_prefix, "_sim_", se_string, "\\.RData$")) |>
+  na.omit() -> sim_se_file
+if(length(sim_se_file)) {
+  load(sim_se_file)
+} else if(isTRUE(getOption("knitr.in.progress"))) {
+  stop(paste("Simulations might take a long time to compute.",
+             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
+             "you will see progress updates in the console).",
+             "The results will be saved to a file and you can try knitting again afterwards."))
+} else {
+  results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
+}
+report_sim_results(results, scores)
+plot_length(results, paste(language, scale), se_threshold, 30)
+```
+
+We want to find the number of items needed to leave only `r q_fail` of all
+administrations not reaching $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000`.
+
+```{r length_threshold}
+sim_length_distro_q(results, q_fail)
+```
+
+
+# Config files preparation
+
+For the CAT app to work we need two files, `items.csv` with parameter estimates and
+a question for each item, and `startThetas.csv` with $\theta_0$, either a single value
+or different values for different (combinations of) demographic (age and/or sex) variables.
+
+$\theta_0$ values may be "corrected" (i.e., decreased by a set constant) to make it more
+likely for first items to be answered positively.
+
+"Questions" for individual items may be used to display for each item its category, but
+they may also be more specific (which is important for gestures but might be helpful
+to keep track of the comprehension/production distinction as well).
+
+The code chunk below, if run, creates two files:
+"`r paste(filename_prefix, "items.csv", sep = "_")`" and
+"`r paste(filename_prefix, "startThetas.csv", sep = "_")`".
+
+```{r config_files, eval=FALSE, echo=TRUE}
+start_thetas <- get_start_thetas(scores, "age", "sex", correction=.5)[[1]]
+prepare_config_files(params, cdi$item_definition, fscores_aggr,
+                     question = "CATEGORY LABEL here", group = subscale, id = cdi$item_id,
+                     file1 = paste(filename_prefix, "items.csv", sep = "_"),
+                     file2 = paste(filename_prefix, "startThetas.csv", sep = "_"))
+```
+
+
+

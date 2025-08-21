@@ -36,7 +36,7 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
 
   for (n in 1:ncol(responses)){
 
-    cat(paste0("\n -- ", "MODEL ", n, " -- \n"))
+    cat(paste("\n -- MODEL", n, "@", Sys.time(), "-- \n"))
 
     if (n == maxN + 1){
 
@@ -46,8 +46,9 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
     } else {
 
       mod <- mirt(data = responses, model = 1, SE = TRUE, quadpts = quadtps, technical = list(NCYCLES = NCYCLES))
-      itemfit <- itemfit(mod, method = "MAP")
-      items_to_remove <- itemfit[itemfit$p.S_X2 < p | is.na(itemfit$p.S_X2), "item"]
+      cat(paste0("\nCalculating item fit..."))
+      item_fit <- itemfit(mod, method = "MAP")
+      items_to_remove <- item_fit[item_fit$p.S_X2 < p | is.na(item_fit$p.S_X2), "item"]
 
       if (length(items_to_remove) == 0){
 
@@ -68,7 +69,8 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
 
   }
 
-  model <- list(mod, items_removed)
+  model <- list(mod, items_removed, item_fit)
+  cat(paste("\nFinished @", Sys.time()))
   if (!is.null(output_file)){
     save(model, file = output_file)
     cat(paste0("\nOutput is saved as ", output_file, " in ", getwd()))
@@ -76,4 +78,20 @@ misfits_removal <- function(responses, quadtps, NCYCLES, p, output_file = NULL, 
   beep()
   return(model)
 
+}
+
+
+cramers_V_df <- function(residuals, ind, cdi, item_fit = NULL) {
+  items_1 <- cdi[ind[, 1], colnames(cdi)]
+  items_2 <- cdi[ind[, 2], colnames(cdi)]
+  names(items_1) <- paste0(names(items_1), "_1")
+  names(items_2) <- paste0(names(items_2), "_2")
+  ret <- bind_cols(items_1, items_2, CramersV = residuals[ind])
+  if(! is.null(item_fit)) {
+    ret %>%
+      left_join(item_fit[, 1:2], by = join_by(item_id_1 == item)) %>%
+      rename(item1_fit = S_X2) %>%
+      left_join(item_fit[, 1:2], by = join_by(item_id_2 == item)) %>%
+      rename(item2_fit = S_X2) %>% return()
+  } else return(ret)
 }
