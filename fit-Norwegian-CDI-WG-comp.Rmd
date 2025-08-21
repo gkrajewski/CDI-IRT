@@ -462,9 +462,11 @@ final_model <- fitting_summary[[length(fitting_summary)]]$model
 misfits_removed <- lapply(fitting_summary, `[[`, "items_removed")
 
 map(misfits_removed, function(x) {
-  imap(x, function(y, idy) {
-    tibble(item_id = y, inner_loop = idy)
-  }) %>% list_rbind() %>% left_join(cdi_full) %>% select(- item_id)
+  if(length(x)) {
+    imap(x, function(y, idy) {
+      tibble(item_id = y, inner_loop = idy)
+    }) %>% list_rbind() %>% left_join(cdi_full) %>% select(- item_id)
+  }
 }) -> misfits_removed
 
 if(outer_loop_iteration > 1) {
@@ -484,16 +486,24 @@ for(i in 1 : i_max) {
   if(i < i_max) {
     cat("## *Outer loop* iteration", i)
     cat("\n\n### Step 1. Misfits removal\n\n")
-    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
-    print(knitr::kable(misfits_removed[[i]]))
+    if(length(misfits_removed[[i]])) {
+      cat(nrow(misfits_removed[[i]]), "item(s) removed in", max(misfits_removed[[i]]$inner_loop), "iteration(s).\n\n")
+      print(knitr::kable(misfits_removed[[i]]))
+    } else {
+      cat("No items removed.\n\n")
+    }
   } else {
     cat("\n\n### Step 2. High *local dependence* items removal\n\n")
     cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
     print(knitr::kable(ld_removed))
     cat("## *Outer loop* iteration", i)
     cat("\n\n### Step 1. Misfits removal\n\n")
-    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
-    print(knitr::kable(misfits_removed[[i]]))
+    if(length(misfits_removed[[i]])) {
+      cat(nrow(misfits_removed[[i]]), "item(s) removed in", max(misfits_removed[[i]]$inner_loop), "iteration(s).\n\n")
+      print(knitr::kable(misfits_removed[[i]]))
+    } else {
+      cat("No items removed.\n\n")
+    }
   }
 }
 ```
