@@ -1,6 +1,17 @@
 ---
 title: "CAT simulations"
-subtitle: "Norwegian CDI:WG Comprehension"
+subtitle: "`r paste(params$language, params$scale)`"
+params:
+  knitting:
+    label: "You shouldn't knit directly from RStudio. Use the 'knit_from_template.R' file. Check only if you really want to override."
+    value: FALSE
+  language:
+    label: "Choose language (preferably as appears in Wordbank):"
+    value: ""
+  scale:
+    label: "Choose scale:"
+    value: NULL
+    choices: ["WG Comprehension", "WG Production", "WG Gestures", "WS"]
 output:
   html_document:
     df_print: paged
@@ -19,24 +30,39 @@ knitr::opts_chunk$set(include = TRUE,
                       fig.align = "center",
                       fig.width = 12,
                       fig.height = 8)
+if(! params$knitting & isTRUE(getOption("knitr.in.progress"))) {
+  stop("Don't knit directly from RStudio. Use the 'knit_from_template.R' file.")
+}
+if(params$language == "" | is.null(params$scale)) {
+  # Ask for params
+  pick_params <- function() {
+    ui <- miniUI::miniPage(
+      miniUI::gadgetTitleBar("Dataset details"),
+      miniUI::miniContentPanel(
+        shiny::textInput("language", "Language (preferably as appears in Wordbank):", value = ""),
+        shiny::radioButtons("scale", "Scale:",
+                            choices = c("WG Comprehension", "WG Production", "WG Gestures", "WS"))
+      )
+    )
+    server <- function(input, output, session) {
+      shiny::observeEvent(input$done, {
+        shiny::stopApp(list(language = input$language, scale = input$scale))
+      })
+    }
+    shiny::runGadget(ui, server)
+  }
+  params <- pick_params()
+}
+language <- params$language
+scale    <- params$scale
 ```
 
 # Setup
 
-Below are the settings for the analyses reported in this document.
-
-```{r settings, echo = TRUE}
-language <- "Norwegian"
-scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
-```
-
-Plot titles, file names etc. are based on them.
-
-Please make sure the subtitle of this document and the filename are consistent with these settings
-(language and scale). Other than that do not change the code or text in the document
-(unless you know what you are doing). No code modifications should be required to successfully
-run the code (and eventually knit the document),
-as long as you knitted the corresponding `fit-*.Rmd` file first.
+Do not change the code or text in the document, unless you know what you are doing or
+you encounter an explicit encouragement to tweak code or settings.
+No modifications should be required to run the code (and eventually knit the document),
+as long as you successfully run the IRT model fitting for this dataset first.
 
 ```{r analyses_setup}
 # Additional setup:
@@ -62,7 +88,6 @@ library(beepr)
 library(tidyverse)
 library(mirtCAT)
 library(parallel)
-#library(ggpubr)
 ```
 
 Functions from "`r functions_dir`" directory are sourced.
@@ -244,8 +269,8 @@ ggplot(scores) +
 # Simulations
 
 ```{r prepare_sim}
-params <- as.data.frame(coef(mod, simplify = TRUE)$items)[1:2]
-mo <- generate.mirt_object(params, '2PL')
+params_mirt <- as.data.frame(coef(mod, simplify = TRUE)$items)[1:2]
+mo <- generate.mirt_object(params_mirt, '2PL')
 cl <- makeCluster(detectCores())
 ```
 
@@ -276,8 +301,7 @@ if(length(sim_all_file)) {
   load(sim_all_file)
 } else if(isTRUE(getOption("knitr.in.progress"))) {
   stop(paste("Simulations might take a long time to compute.",
-             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
-             "you will see progress updates in the console).",
+             "Run the code interactively in RStudio to see progress.",
              "The results will be saved to a file and you can try knitting again afterwards."))
 } else {
   message(paste("Starting simulation with no STOP criteria @", Sys.time()))
@@ -340,7 +364,7 @@ ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
     text = element_text(size=16)
   ) + 
   scale_y_continuous(breaks = c(0.1, 0.15, 0.2, 0.25, 0.5, 0.75, 1)) + 
-  scale_x_continuous(breaks = seq(0, nrow(params), by=10), limits = c(1, 100))
+  scale_x_continuous(breaks = seq(0, nrow(params_mirt), by=10), limits = c(1, min(100, nrow(params_mirt))))
 ```
 
 
@@ -359,14 +383,13 @@ if(length(sim_se_file)) {
   load(sim_se_file)
 } else if(isTRUE(getOption("knitr.in.progress"))) {
   stop(paste("Simulations might take a long time to compute.",
-             "Run the code interactively in RStudio (if you run it 'by lines', not 'by chunks',",
-             "you will see progress updates in the console).",
+             "Run the code interactively in RStudio to see progress.",
              "The results will be saved to a file and you can try knitting again afterwards."))
 } else {
   results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
 }
 report_sim_results(results, scores)
-plot_length(results, paste(language, scale), se_threshold, 30)
+plot_length(results, paste(language, scale), se_threshold, 20)
 ```
 
 We want to find the number of items needed to leave only `r q_fail` of all
@@ -396,7 +419,7 @@ The code chunk below, if run, creates two files:
 
 ```{r config_files, eval=FALSE, echo=TRUE}
 start_thetas <- get_start_thetas(scores, "age", "sex", correction=.5)[[1]]
-prepare_config_files(params, cdi$item_definition, fscores_aggr,
+prepare_config_files(params_mirt, cdi$item_definition, fscores_aggr,
                      question = "CATEGORY LABEL here", group = subscale, id = cdi$item_id,
                      file1 = paste(filename_prefix, "items.csv", sep = "_"),
                      file2 = paste(filename_prefix, "startThetas.csv", sep = "_"))

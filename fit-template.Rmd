@@ -1,6 +1,17 @@
 ---
 title: "IRT model fitting"
-subtitle: "Norwegian CDI:WG Comprehension"
+subtitle: "`r paste(params$language, params$scale)`"
+params:
+  knitting:
+    label: "You shouldn't knit directly from RStudio. Use the 'knit_from_template.R' file. Check only if you really want to override."
+    value: FALSE
+  language:
+    label: "Choose language (preferably as appears in Wordbank):"
+    value: ""
+  scale:
+    label: "Choose scale:"
+    value: NULL
+    choices: ["WG Comprehension", "WG Production", "WG Gestures", "WS"]
 output:
   html_document:
     df_print: paged
@@ -16,23 +27,38 @@ knitr::opts_chunk$set(include = TRUE,
                       eval = TRUE,
                       message = FALSE,
                       warning = FALSE)
+if(! params$knitting & isTRUE(getOption("knitr.in.progress"))) {
+  stop("Don't knit directly from RStudio. Use the 'knit_from_template.R' file.")
+}
+if(params$language == "" | is.null(params$scale)) {
+  # Ask for params
+  pick_params <- function() {
+    ui <- miniUI::miniPage(
+      miniUI::gadgetTitleBar("Dataset details"),
+      miniUI::miniContentPanel(
+        shiny::textInput("language", "Language (preferably as appears in Wordbank):", value = ""),
+        shiny::radioButtons("scale", "Scale:",
+                            choices = c("WG Comprehension", "WG Production", "WG Gestures", "WS"))
+      )
+    )
+    server <- function(input, output, session) {
+      shiny::observeEvent(input$done, {
+        shiny::stopApp(list(language = input$language, scale = input$scale))
+      })
+    }
+    shiny::runGadget(ui, server)
+  }
+  params <- pick_params()
+}
+language <- params$language
+scale    <- params$scale
 ```
 
 # Setup
 
-Below are the settings for the analyses reported in this document.
-
-```{r settings, echo = TRUE}
-language <- "Norwegian"
-scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
-```
-
-Plot titles, file names etc. are based on them.
-
-Please make sure the subtitle of this document and the filename are consistent with these settings
-(language and scale). Other than that do not change the code or text in the document
-(unless you know what you are doing). No code modifications should be required to successfully
-run the code (and eventually knit the document),
+Do not change the code or text in the document, unless you know what you are doing or
+you encounter an explicit encouragement to tweak code or settings.
+No code modifications should be required to run the code (and eventually knit the document),
 as long as you have the required data ready (read below).
 
 ```{r analyses_setup}
@@ -305,7 +331,7 @@ We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally
 Each time we remove items for which S-X² is significant with $p < 0.001$ and refit the model,
 until there are no items to remove.
 
-```{r misfits_removal, eval=inner_loop_run, message=TRUE}
+```{r misfits_removal, eval=inner_loop_run, message=TRUE, error=TRUE}
 if(inner_loop_run) {
   if (isTRUE(getOption("knitr.in.progress"))) {
     stop(paste("Model fitting with misfits removal might take a long time to compute.",
@@ -453,47 +479,67 @@ if(length(items_to_remove_ids)) {
 
 We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally $100000$ cycles.
 
-```{r summary_setup}
-map(1 : outer_loop_iteration, function(x) {
-  load(paste(filename_prefix, x, "model.RData", sep = "_"))
-  return(list(model = model[[1]], items_removed = model[[2]]))
-}) -> fitting_summary
-final_model <- fitting_summary[[length(fitting_summary)]]$model
-misfits_removed <- lapply(fitting_summary, `[[`, "items_removed")
-
-map(misfits_removed, function(x) {
-  imap(x, function(y, idy) {
-    tibble(item_id = y, inner_loop = idy)
-  }) %>% list_rbind() %>% left_join(cdi_full) %>% select(- item_id)
-}) -> misfits_removed
-
-if(outer_loop_iteration > 1) {
-  ld <- new.env()
-  load(paste(filename_prefix, outer_loop_iteration - 1, "residuals.RData", sep = "_"))
-  load(paste(filename_prefix, outer_loop_iteration - 1, "data.RData", sep = "_"), envir = ld)
-  cramers_V_df(residuals, arrayInd(which(residuals > 0.5), dim(residuals)), ld$cdi) %>%
-    select(- starts_with("item_id")) -> ld_removed
+```{r summary_setup, eval=summary_run}
+if(summary_run) {
+  map(1 : outer_loop_iteration, function(x) {
+    load(paste(filename_prefix, x, "model.RData", sep = "_"))
+    return(list(model = model[[1]], items_removed = model[[2]]))
+  }) -> fitting_summary
+  final_model <- fitting_summary[[length(fitting_summary)]]$model
+  misfits_removed <- lapply(fitting_summary, `[[`, "items_removed")
+  
+  map(misfits_removed, function(x) {
+    if(length(x)) {
+      imap(x, function(y, idy) {
+        tibble(item_id = y, inner_loop = idy)
+      }) %>% list_rbind() %>% left_join(cdi_full) %>% select(- item_id)
+    }
+  }) -> misfits_removed
+  
+  if(outer_loop_iteration > 1) {
+    ld <- new.env()
+    load(paste(filename_prefix, outer_loop_iteration - 1, "residuals.RData", sep = "_"))
+    load(paste(filename_prefix, outer_loop_iteration - 1, "data.RData", sep = "_"), envir = ld)
+    cramers_V_df(residuals, arrayInd(which(residuals > 0.5), dim(residuals)), ld$cdi) %>%
+      select(- starts_with("item_id")) -> ld_removed
+  }
 }
 ```
 
 Below is a summary of the whole iterative item removal procedure.
 
-```{r misfits_removed, results='asis'}
-i_max <- length(misfits_removed)
-for(i in 1 : i_max) {
-  if(i < i_max) {
-    cat("## *Outer loop* iteration", i)
-    cat("\n\n### Step 1. Misfits removal\n\n")
-    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
-    print(knitr::kable(misfits_removed[[i]]))
-  } else {
-    cat("\n\n### Step 2. High *local dependence* items removal\n\n")
-    cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
-    print(knitr::kable(ld_removed))
-    cat("## *Outer loop* iteration", i)
-    cat("\n\n### Step 1. Misfits removal\n\n")
-    cat(nrow(misfits_removed[[i]]), "items removed in", max(misfits_removed[[i]]$inner_loop), "iterations.\n\n")
-    print(knitr::kable(misfits_removed[[i]]))
+```{r misfits_removed, eval=summary_run, results='asis'}
+if(summary_run) {
+  i_max <- length(misfits_removed)
+  for(i in 1 : i_max) {
+    if(i < i_max) {
+      cat("## *Outer loop* iteration", i)
+      cat("\n\n### Step 1. Misfits removal\n\n")
+      if(length(misfits_removed[[i]])) {
+        cat(nrow(misfits_removed[[i]]), "item(s) removed in", max(misfits_removed[[i]]$inner_loop), "iteration(s).\n\n")
+        print(knitr::kable(misfits_removed[[i]]))
+      } else {
+        cat("No items removed.\n\n")
+      }
+    } else {
+      if(exists("ld_removed")) {
+        cat("\n\n### Step 2. High *local dependence* items removal\n\n")
+        cat(length(unique(c(ld_removed$item_definition_1, ld_removed$item_definition_2))), "items removed.\n\n")
+        print(knitr::kable(ld_removed))
+      }
+      cat("## *Outer loop* iteration", i)
+      cat("\n\n### Step 1. Misfits removal\n\n")
+      if(length(misfits_removed[[i]])) {
+        cat(nrow(misfits_removed[[i]]), "item(s) removed in", max(misfits_removed[[i]]$inner_loop), "iteration(s).\n\n")
+        print(knitr::kable(misfits_removed[[i]]))
+      } else {
+        cat("No items removed.\n\n")
+      }
+      if(! exists("ld_removed")) {
+        cat("\n\n### Step 2. High *local dependence* items removal\n\n")
+        cat("No items removed.\n\n")
+      }
+    }
   }
 }
 ```
@@ -503,7 +549,7 @@ for(i in 1 : i_max) {
 
 This is the final model's basic summary.
 
-```{r final_model}
+```{r final_model, eval=summary_run}
 final_model
 ```
 
