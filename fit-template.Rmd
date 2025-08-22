@@ -1,6 +1,17 @@
 ---
 title: "IRT model fitting"
-subtitle: "Norwegian CDI:WG Comprehension"
+subtitle: "`r paste(params$language, params$scale)`"
+params:
+  knitting:
+    label: "You shouldn't knit directly from RStudio. Use the 'knit_from_template.R' file. Check only if you really want to override."
+    value: FALSE
+  language:
+    label: "Choose language (preferably as appears in Wordbank):"
+    value: ""
+  scale:
+    label: "Choose scale:"
+    value: NULL
+    choices: ["WG Comprehension", "WG Production", "WG Gestures", "WS"]
 output:
   html_document:
     df_print: paged
@@ -16,23 +27,38 @@ knitr::opts_chunk$set(include = TRUE,
                       eval = TRUE,
                       message = FALSE,
                       warning = FALSE)
+if(! params$knitting & isTRUE(getOption("knitr.in.progress"))) {
+  stop("Don't knit directly from RStudio. Use the 'knit_from_template.R' file.")
+}
+if(params$language == "" | is.null(params$scale)) {
+  # Ask for params
+  pick_params <- function() {
+    ui <- miniUI::miniPage(
+      miniUI::gadgetTitleBar("Dataset details"),
+      miniUI::miniContentPanel(
+        shiny::textInput("language", "Language (preferably as appears in Wordbank):", value = ""),
+        shiny::radioButtons("scale", "Scale:",
+                            choices = c("WG Comprehension", "WG Production", "WG Gestures", "WS"))
+      )
+    )
+    server <- function(input, output, session) {
+      shiny::observeEvent(input$done, {
+        shiny::stopApp(list(language = input$language, scale = input$scale))
+      })
+    }
+    shiny::runGadget(ui, server)
+  }
+  params <- pick_params()
+}
+language <- params$language
+scale    <- params$scale
 ```
 
 # Setup
 
-Below are the settings for the analyses reported in this document.
-
-```{r settings, echo = TRUE}
-language <- "Norwegian"
-scale <- "WG Comprehension" # one of "WG Comprehension", "WG Production", "WG Gestures", "WS"
-```
-
-Plot titles, file names etc. are based on them.
-
-Please make sure the subtitle of this document and the filename are consistent with these settings
-(language and scale). Other than that do not change the code or text in the document
-(unless you know what you are doing). No code modifications should be required to successfully
-run the code (and eventually knit the document),
+Do not change the code or text in the document, unless you know what you are doing or
+you encounter an explicit encouragement to tweak code or settings.
+No code modifications should be required to run the code (and eventually knit the document),
 as long as you have the required data ready (read below).
 
 ```{r analyses_setup}
@@ -305,7 +331,7 @@ We repeatedly fit the IRT model using `r quadtp` quadrature points and maximally
 Each time we remove items for which S-X² is significant with $p < 0.001$ and refit the model,
 until there are no items to remove.
 
-```{r misfits_removal, eval=inner_loop_run, message=TRUE}
+```{r misfits_removal, eval=inner_loop_run, message=TRUE, error=TRUE}
 if(inner_loop_run) {
   if (isTRUE(getOption("knitr.in.progress"))) {
     stop(paste("Model fitting with misfits removal might take a long time to compute.",

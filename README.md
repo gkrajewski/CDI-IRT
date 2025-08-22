@@ -1,25 +1,42 @@
 Forked from [pikrol/CDI-IRT:master](https://github.com/pikrol/CDI-IRT)
 
-There are two types of files[^note1] in the main directory:
+Currently the repository lets you do two things:
 
-- `fit-[language]-[scale].Rmd` (fitting the IRT model)
-- `sim-[language]-[scale].Rmd` (analyses and simulations based on the IRT model)
+- run IRT model fitting (with `fit-template.Rmd`)
+- run a set of analyses and simulations using such a model (with `sim-template.Rmd`)
 
-[^note1]: Optionally, there might be corresponding knitted `html` files as well.
+`fit-template.Rmd` needs the relevant data (see the file for details) to work.
 
-They can and **should be treated as templates**. To use with another language and/or scale:
+`sim-template.Rmd` needs the successful run of `fit-template.Rmd` on the relevant data to work.
 
-1. copy, rename and modify the preamble and the settings chunk as instructed in the file;
-2. for `fit-*.Rmd` to work, you need data as described in the file;
-3. for `sim-*.Rmd` to work, you have to successfully knit corresponding `fit-*.Rmd` first;
-3. you shouldn't need to modify anything else in the files.
+You shouldn't (have to) modify anything in the files (unless a chunk explicitly states otherwise);
+you'll be asked for the data you want to run them on, when you try running or knitting them.
 
-`Functions` directory contains required function definitions.
+Both files contain potentially time-consuming chunks. These chunks show their progress in the console
+(if possible) and their results are saved (to `Data` directory), so that next time you run the code
+the results are loaded, rather than recomputed.
 
-`Data` directory is used for saving and loading data (raw CDI, interim & final models, simulations etc.).[^note2]
- 
-[^note2]: It's gitignored because of the size of `RData` files and to avoid issues with data sharing.
+Knitting is not allowed until you first run the whole code interactively,
+so that you can observe all those progress bars and other important messages,
+which would be difficult during the knitting process.
+Also, by default, knitting is allowed only by sourcing `knit_from_template.R`
+(it will ask for necessary details), which takes care of the output file's name
+and location (`Reports` directory).[^knitting]
 
-`Archive` directory contains lots of old and possibly still useful and/or interesting stuff.
+[^knitting]: You can use RStudio "knitting with parameters" but it's not recommended.
+
+Subdirectories:
+
+- `Functions` directory contains required function definitions.
+
+- `Reports` directory contains knitted reports.[^reports]
+
+- `Data` directory is used for saving and loading data (raw CDI, interim & final models, simulations etc.).[^data]
+
+[^reports]: `knit_from_template.R` by default saves them there.
+
+[^data]: It's gitignored because of the size of `RData` files and to avoid issues with data sharing.
+
+- `Archive` directory contains lots of old and possibly still useful and/or interesting stuff.
 Content in all its subdirectories other than `Archive/Rmd_2_0` comes from
-the [forked pikrol/CDI-IRT](https://github.com/pikrol/CDI-IRT).
+the forked [pikrol/CDI-IRT](https://github.com/pikrol/CDI-IRT).
