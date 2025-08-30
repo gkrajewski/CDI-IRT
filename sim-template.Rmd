@@ -316,7 +316,7 @@ if(length(sim_all_file)) {
   message(paste("Finished @ ", Sys.time()))
   beep()
 }
-report_sim_results(results_all, scores)
+report_sim_results(results_all, scores, nrow(cdi))
 ```
 
 Based on the whole pool simulation we can examine decreasing average $SE_{\theta}$ with each item.
@@ -391,8 +391,8 @@ if(length(sim_se_file)) {
 } else {
   results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
 }
-report_sim_results(results, scores)
-plot_length(results, paste(language, scale), se_threshold, 20)
+report_sim_results(results, scores, nrow(cdi))
+plot_length(results, paste(language, scale), se_threshold, dim(responses), 20)
 ```
 
 We want to find the number of items needed to leave only `r q_fail` of all

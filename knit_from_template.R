@@ -1,3 +1,4 @@
+rm(list = ls())
 output_dir <- "Reports"
 
 # Get params
@@ -21,7 +22,6 @@ pick_params <- function() {
      shiny::runGadget(ui, server)
 }
 input_params <- pick_params()
-if(exists("params")) rm(params)
 
 # Parse params
 paste0(input_params$kind, "-") -> kind
