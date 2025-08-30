@@ -126,6 +126,9 @@ rm(model) # to save space
 
 # Model exploration
 
+The model was fit to `r dim(mod@Data$data)[2]` items
+and `r dim(mod@Data$data)[1]` administrations.
+
 ## IRT items parameters
 
 ```{r item_parameters}
