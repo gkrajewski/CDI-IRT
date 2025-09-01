@@ -277,11 +277,11 @@ mo <- generate.mirt_object(params_mirt, '2PL')
 cl <- makeCluster(detectCores())
 ```
 
-At the moment the simulations we run help us to decide CAT stopping criteria,
+At the moment the simulations we run help us to decide **two** stopping criteria for CAT,
 max. $SE_{\theta}$ accepted and max. number of items allowed. We first observe
 how adding items decreases the mean $SE_{\theta}$ and we identify the $SE_{\theta}$
 value, for which adding another item doesn't result in a *substantial drop* anymore.
-Then we run simulations with that value as a stopping crietrion to see
+Then we run simulations with that value as a stopping criterion to see
 how many items are needed to reach this criterion for a *reasonably high*
 proportion of administrations.
 
@@ -329,7 +329,7 @@ colnames(meanSE_item) <- c("mean_SE", "test_length")
 meanSE_item$test_length <- as.numeric(meanSE_item$test_length)
 ```
 
-We want to find the first value for which the difference between it and the next one
+We want to find the first average $SE_{\theta}$ for which the difference between it and the next one
 is less than `r SE_delta`.
 
 ```{r se_threshold}
@@ -344,7 +344,7 @@ se_plateau
 
 We plot the average $SE_{\theta}$ by each consecutive item
 (max. 100: highly unlikely not to reach the plateau by then)
-and add red dashed lines marking the above.
+and add red dashed lines marking the value identified above.
 
 ```{r se_length_plot}
 ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
@@ -373,8 +373,10 @@ write_csv(meanSE_item, paste(filename_prefix, "meanSE.csv", sep = "_"))
 
 ## $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000` stop criterion
 
-We simulate CAT again, this time stopping each administration when its
-$SE_{\theta}$ reaches `r ceiling(se_threshold * 1000) / 1000`.
+We take `r ceiling(se_threshold * 1000) / 1000` as the max. $SE_{\theta}$
+we accept for a CAT administration (**STOP CRITERION 1**).
+Now we simulate CAT again, this time stopping each administration when its
+$SE_{\theta}$ reaches this threshold.
 
 ```{r sim_se, message=TRUE}
 se_precision <- nchar(strsplit(as.character(SE_delta), "\\.")[[1]][2])
@@ -416,8 +418,11 @@ We want to find the number of items needed to leave only `r q_fail` of all
 administrations not reaching $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000`.
 
 ```{r length_threshold}
-sim_length_distro_q(results, q_fail)
+sim_length_distro_q(results, q_fail)$threshold -> n_threshold
 ```
+
+We take `r n_threshold` as the max. number of items we allow for a single CAT administration
+(**STOP CRITERION 2**).
 
 
 # Config files preparation
