@@ -1,4 +1,4 @@
-sim_se <- function(min_SEM, file = NULL) {
+sim_se <- function(mo, responses, cl, min_SEM, file = NULL) {
   message(paste("Starting simulation with SE <", min_SEM, "as STOP criterion @", Sys.time()))
   results <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
                      local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM),
@@ -9,7 +9,7 @@ sim_se <- function(min_SEM, file = NULL) {
   return(results)
 }
 
-report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
+report_sim_results <- function(sim_results, fscores, cdi_length){
 
   #Obtain mean test length
   tests_lengths <- map_int(sim_results, function(x) length(x$items_answered))
@@ -45,7 +45,9 @@ report_sim_results <- function(sim_results, fscores, cdi_length = nrow(cdi)){
   invisible(list(mean_length, median_length, cor_full, cor_score, meanSE, reliability, items_unused_count))
 }
 
-plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14, title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 1000) / 1000)) {
+plot_length <- function(results, cdi_name, se, responses_dim,
+                        bin_width = 10, pfs = 6, xfs = 14,
+                        title = paste0(cdi_name, " with stop criterion SE < ", ceiling(se * 1000) / 1000)) {
 
   ###
   # Plots a histogram of the distribution of administration length (number of items)
@@ -55,15 +57,17 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
   # 1: results - simulation results (as returned by sim_se(), which is a wrapper for mirtCAT())
   # 2: cdi_name - for plot title: name of the CDI
   # 3: se - for plot title: SE threshold used as a stopping criterion in sim_se()
-  # 4: bin_width - (optional) defaults to 10 (last bin always equals to all items used while second to last always adjusts)
-  # 5: pfs - (optional) font size for percentages above bars
-  # 6: xfs - (optional) font size for bin labels on X axis
-  # 7: title - (optional) defaults to "cdi_name with stop criterion SE < se"
+  # 4: responses_dim: number of administrations (for bar heights) and of items (for last and second to last bin)
+  # 5: bin_width - (optional) defaults to 10 (last bin always equals to all items used while second to last always adjusts)
+  # 6: pfs - (optional) font size for percentages above bars
+  # 7: xfs - (optional) font size for bin labels on X axis
+  # 8: title - (optional) defaults to "cdi_name with stop criterion SE < se"
   ###
 
   #Prepare cuts
   tests_lengths <- map_int(results, function(x) length(x$items_answered))
-  len <- nrow(cdi)
+  n_adm <- responses_dim[1]
+  len   <- responses_dim[2]
   if((len-1) %% bin_width < bin_width/2) {
     breaks <- c(seq(0, len-1-bin_width, by=bin_width), len-1, len)
   } else {
@@ -73,7 +77,7 @@ plot_length <- function(results, cdi_name, se, bin_width = 10, pfs = 6, xfs = 14
   cuts <- cut(tests_lengths, breaks = breaks, labels = labels)
 
   #Plot
-  ggplot(data.frame(round(table(cuts) / nrow(responses) * 100, 1)), aes(x = cuts, y = Freq)) +
+  ggplot(data.frame(round(table(cuts) / n_adm * 100, 1)), aes(x = cuts, y = Freq)) +
     xlab("Number of items administered") +
     ylab("Percent of respondents (%)") +
     geom_bar(stat = "identity") +

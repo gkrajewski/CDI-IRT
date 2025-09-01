@@ -126,6 +126,9 @@ rm(model) # to save space
 
 # Model exploration
 
+The model was fit to `r dim(mod@Data$data)[2]` items
+and `r dim(mod@Data$data)[1]` administrations.
+
 ## IRT items parameters
 
 ```{r item_parameters}
@@ -274,11 +277,11 @@ mo <- generate.mirt_object(params_mirt, '2PL')
 cl <- makeCluster(detectCores())
 ```
 
-At the moment the simulations we run help us to decide CAT stopping criteria,
+At the moment the simulations we run help us to decide **two** stopping criteria for CAT,
 max. $SE_{\theta}$ accepted and max. number of items allowed. We first observe
 how adding items decreases the mean $SE_{\theta}$ and we identify the $SE_{\theta}$
 value, for which adding another item doesn't result in a *substantial drop* anymore.
-Then we run simulations with that value as a stopping crietrion to see
+Then we run simulations with that value as a stopping criterion to see
 how many items are needed to reach this criterion for a *reasonably high*
 proportion of administrations.
 
@@ -313,7 +316,7 @@ if(length(sim_all_file)) {
   message(paste("Finished @ ", Sys.time()))
   beep()
 }
-report_sim_results(results_all, scores)
+report_sim_results(results_all, scores, nrow(cdi))
 ```
 
 Based on the whole pool simulation we can examine decreasing average $SE_{\theta}$ with each item.
@@ -326,13 +329,7 @@ colnames(meanSE_item) <- c("mean_SE", "test_length")
 meanSE_item$test_length <- as.numeric(meanSE_item$test_length)
 ```
 
-We can export the data for crosslinguistic plotting/analysing.
-
-```{r mean_se_export, eval=FALSE}
-write_csv(meanSE_item, paste(filename_prefix, "meanSE.csv", sep = "_"))
-```
-
-We want to find the first value for which the difference between it and the next one
+We want to find the first average $SE_{\theta}$ for which the difference between it and the next one
 is less than `r SE_delta`.
 
 ```{r se_threshold}
@@ -347,7 +344,7 @@ se_plateau
 
 We plot the average $SE_{\theta}$ by each consecutive item
 (max. 100: highly unlikely not to reach the plateau by then)
-and add red dashed lines marking the above.
+and add red dashed lines marking the value identified above.
 
 ```{r se_length_plot}
 ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
@@ -367,11 +364,19 @@ ggplot(meanSE_item, aes(x = test_length, y = mean_SE)) +
   scale_x_continuous(breaks = seq(0, nrow(params_mirt), by=10), limits = c(1, min(100, nrow(params_mirt))))
 ```
 
+We can export the data for crosslinguistic plotting/analysing.
+
+```{r mean_se_export, eval=FALSE}
+write_csv(meanSE_item, paste(filename_prefix, "meanSE.csv", sep = "_"))
+```
+
 
 ## $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000` stop criterion
 
-We simulate CAT again, this time stopping each administration when its
-$SE_{\theta}$ reaches `r ceiling(se_threshold * 1000) / 1000`.
+We take `r ceiling(se_threshold * 1000) / 1000` as the max. $SE_{\theta}$
+we accept for a CAT administration (**STOP CRITERION 1**).
+Now we simulate CAT again, this time stopping each administration when its
+$SE_{\theta}$ reaches this threshold.
 
 ```{r sim_se, message=TRUE}
 se_precision <- nchar(strsplit(as.character(SE_delta), "\\.")[[1]][2])
@@ -386,18 +391,38 @@ if(length(sim_se_file)) {
              "Run the code interactively in RStudio to see progress.",
              "The results will be saved to a file and you can try knitting again afterwards."))
 } else {
-  results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
+  results <- sim_se(mo, responses, cl, se_threshold,
+                    file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
 }
-report_sim_results(results, scores)
-plot_length(results, paste(language, scale), se_threshold, 20)
+report_sim_results(results, scores, nrow(cdi))
+```
+
+We want to see the distribution of the number of items needed to reach it
+(and the proportion of administrations that will not reach it at all).
+
+*__NB:__ If the histogram below doesn't look ok, here are some settings*
+*you can modify.*
+
+```{r plot_length_hist_settings, echo=TRUE}
+bin_width <- 10
+pfs <-  6   # font size for percentages above bars
+xfs <-  14  # font size for bin labels on X axis
+```
+
+
+```{r plot_length_hist}
+plot_length(results, paste(language, scale), se_threshold, dim(responses), bin_width, pfs, xfs)
 ```
 
 We want to find the number of items needed to leave only `r q_fail` of all
 administrations not reaching $SE_{\theta} <$ `r ceiling(se_threshold * 1000) / 1000`.
 
 ```{r length_threshold}
-sim_length_distro_q(results, q_fail)
+sim_length_distro_q(results, q_fail)$threshold -> n_threshold
 ```
+
+We take `r n_threshold` as the max. number of items we allow for a single CAT administration
+(**STOP CRITERION 2**).
 
 
 # Config files preparation

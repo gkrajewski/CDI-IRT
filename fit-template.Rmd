@@ -547,7 +547,9 @@ if(summary_run) {
 
 ## Final model
 
-This is the final model's basic summary.
+The final model was fit to `r dim(final_model@Data$data)[2]` items
+and `r dim(final_model@Data$data)[1]` administrations.
+This is the model's basic summary.
 
 ```{r final_model, eval=summary_run}
 final_model

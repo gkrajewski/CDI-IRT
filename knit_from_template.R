@@ -1,3 +1,4 @@
+rm(list = ls())
 output_dir <- "Reports"
 
 # Get params
@@ -20,8 +21,12 @@ pick_params <- function() {
      }
      shiny::runGadget(ui, server)
 }
-input_params <- pick_params()
-if(exists("params")) rm(params)
+args <- commandArgs(TRUE)
+if(length(args)) {
+        input_params <- setNames(as.list(args), c("kind", "language", "scale"))
+} else {
+        input_params <- pick_params()
+}
 
 # Parse params
 paste0(input_params$kind, "-") -> kind
