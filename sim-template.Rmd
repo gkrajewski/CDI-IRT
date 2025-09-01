@@ -389,7 +389,8 @@ if(length(sim_se_file)) {
              "Run the code interactively in RStudio to see progress.",
              "The results will be saved to a file and you can try knitting again afterwards."))
 } else {
-  results <- sim_se(se_threshold, file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
+  results <- sim_se(mo, responses, cl, se_threshold,
+                    file = paste0(filename_prefix, "_sim_", se_string, ".RData"))
 }
 report_sim_results(results, scores, nrow(cdi))
 plot_length(results, paste(language, scale), se_threshold, dim(responses), 20)

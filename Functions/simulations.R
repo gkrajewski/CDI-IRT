@@ -1,4 +1,4 @@
-sim_se <- function(min_SEM, file = NULL) {
+sim_se <- function(mo, responses, cl, min_SEM, file = NULL) {
   message(paste("Starting simulation with SE <", min_SEM, "as STOP criterion @", Sys.time()))
   results <- mirtCAT(mo = mo, method = "MAP", criteria = "MI", start_item = "MI",
                      local_pattern = responses, cl = cl, design = list(min_SEM = min_SEM),
