@@ -287,7 +287,7 @@ proportion of administrations.
 
 ```{r stop_criteria_parameters, echo=TRUE}
 SE_delta <- 0.001 # non-substantial drop in mean SE
-q_fail <- .2 # reasonably low proportion of administrations not reaching desired SE
+q_fail <- .25 # reasonably low proportion of administrations not reaching desired SE
 ```
 
 
