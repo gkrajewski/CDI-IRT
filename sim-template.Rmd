@@ -287,7 +287,7 @@ proportion of administrations.
 
 ```{r stop_criteria_parameters, echo=TRUE}
 SE_delta <- 0.001 # non-substantial drop in mean SE
-q_fail <- .2 # reasonably low proportion of administrations not reaching desired SE
+q_fail <- .25 # reasonably low proportion of administrations not reaching desired SE
 ```
 
 
@@ -443,7 +443,7 @@ The code chunk below, if run, creates two files:
 "`r paste(filename_prefix, "startThetas.csv", sep = "_")`".
 
 ```{r config_files, eval=FALSE, echo=TRUE}
-start_thetas <- get_start_thetas(scores, "age", "sex", correction=.5)[[1]]
+fscores_aggr <- get_start_thetas(scores, "age", "sex", correction=.5)[[1]]
 prepare_config_files(params_mirt, cdi$item_definition, fscores_aggr,
                      question = "CATEGORY LABEL here", group = subscale, id = cdi$item_id,
                      file1 = paste(filename_prefix, "items.csv", sep = "_"),
