@@ -11,7 +11,7 @@ library(tidyverse)
 
 ## Norwegian WG
 
-```{r import}
+```{r import-wg}
 read_csv("Data/norwegian_wg_gest_items.csv") -> no_wg_gest
 read_csv("Data/norwegian_wg_comp_items.csv") -> no_wg_comp
 read_csv("Data/norwegian_wg_prod_items.csv") -> no_wg_prod
@@ -21,7 +21,7 @@ bind_rows(no_wg_gest, no_wg_comp, no_wg_prod) -> no_wg
 
 First, we need to get semantic category for each item in Norwegian
 This can be extracted from the translation file...
-```{r descriptive-categories}
+```{r descriptive-categories-wg}
 read_csv2("Items/no/wg/translations.csv") %>% 
   filter(text_type == "catHeader") %>%
   select(-text_type) %>%
@@ -53,7 +53,7 @@ no_wg %>% left_join(no_items_categories,
 #  write_csv("no_missing_category.csv")
 
 #import missing categories
-read_csv2("no_filled_missing_category.csv") %>% 
+read_csv2("no_wg_filled_missing_category.csv") %>% 
   right_join(no_wg, by = c("id", "item"), suffix = c("_x", "_y")) %>% 
   mutate(
   category = coalesce(category_y, category_x),
@@ -70,6 +70,64 @@ no_wg %>%
                                group == "Comp" ~ "Forstår barnet…",
                                group == "Gest" ~ "")) %>%
   unite("question", category_descriptive, question_, sep = ": ") %>%
-  select(a1,d,item,question,group,id)-> no_wg_app
+  select(a1,d,item,question,group,id) %>% write_csv("CAT batch files/no/wg/items.csv")
+```
+
+## Norwegian WS
+
+```{r import-ws}
+read_csv("Data/norwegian_ws_items.csv") -> no_ws
+```
+
+First, we need to get semantic category for each item in Norwegian
+This can be extracted from the translation file...
+```{r descriptive-categories-ws}
+read_csv2("Items/no/ws/translations.csv") %>% 
+  filter(text_type == "catHeader") %>%
+  select(-text_type) %>%
+  rename(category_descriptive = text) -> no_categories
+
+read_csv2("Items/no/ws/items.csv") %>% 
+  select(item_id, definition, category, type) %>%
+  mutate(category = if_else(is.na(category),
+                            type,category)) %>%
+  mutate(type = if_else(grepl("gestures_*",type),
+                        "gestures",type)) %>%
+  left_join(no_categories, 
+            by = c("category", "type" = "item_type")) -> no_items_categories
+```
+
+Secondly, we merge the categories with the CAT items
+Some items have missing category bc. duplicates (vann) are stored differently
+in each file.
+```{r join-cat-items-with-category-ws}
+no_ws %>% left_join(no_items_categories, 
+                    by = c("id" = "item_id", 
+                           "item" = "definition")) -> no_ws
+
+#check and save items with missing information on category for manual coding
+#no_ws %>% filter(is.na(category)) %>% 
+#  select(id, item, category, type, category_descriptive) %>%
+#  distinct() %>%
+#  mutate(updated_item = "") %>%
+#  write_csv("no_ws_missing_category.csv")
+
+#import missing categories
+read_csv2("no_ws_filled_missing_category.csv") %>% 
+  right_join(no_ws, by = c("id", "item"), suffix = c("_x", "_y")) %>% 
+  mutate(
+  category = coalesce(category_y, category_x),
+  type = coalesce(type_y, type_x),
+  category_descriptive = coalesce(category_descriptive_y, category_descriptive_x),
+  item = coalesce(updated_item, item)
+) %>% select(-ends_with("_x"), -ends_with("_y"), -updated_item) -> no_ws
+```
+
+Third, we merge categories with question and write.
+```{r no-ws-question}
+no_ws %>% 
+  mutate(question_ =  "Sier barnet…") %>%
+  unite("question", category_descriptive, question_, sep = ": ") %>%
+  select(a1,d,item,question,group,id) %>% write_csv("CAT batch files/no/ws/items.csv")
 ```
 
