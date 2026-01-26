@@ -60,6 +60,16 @@ read_csv2("no_filled_missing_category.csv") %>%
   type = coalesce(type_y, type_x),
   category_descriptive = coalesce(category_descriptive_y, category_descriptive_x),
   item = coalesce(updated_item, item)
-) %>% select(-ends_with("_x"), -ends_with("_y"), -updated_item) %>% no_wg
+) %>% select(-ends_with("_x"), -ends_with("_y"), -updated_item) -> no_wg
+```
+
+Third, we merge categories with question.
+```{r no-wg-question}
+no_wg %>% 
+  mutate(question_ = case_when(group == "Prod" ~ "Sier barnet…",
+                               group == "Comp" ~ "Forstår barnet…",
+                               group == "Gest" ~ "")) %>%
+  unite("question", category_descriptive, question_, sep = ": ") %>%
+  select(a1,d,item,question,group,id)-> no_wg_app
 ```
 
