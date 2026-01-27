@@ -11,6 +11,8 @@ library(tidyverse)
 
 ## Norwegian WG
 
+### Items
+
 ```{r import-wg}
 read_csv("Data/norwegian_wg_gest_items.csv") -> no_wg_gest
 read_csv("Data/norwegian_wg_comp_items.csv") -> no_wg_comp
@@ -71,6 +73,17 @@ no_wg %>%
                                group == "Gest" ~ "")) %>%
   unite("question", category_descriptive, question_, sep = ": ") %>%
   select(a1,d,item,question,group,id) %>% write_csv("CAT batch files/no/wg/items.csv")
+```
+
+### StartThetas
+
+We need to bind files with StartThetas for gestures, comprehension, production
+
+```{r no-wg-startthetas}
+rbind(read_csv("Data/norwegian_wg_gest_startThetas.csv"),
+      read_csv("Data/norwegian_wg_comp_startThetas.csv"),
+      read_csv("Data/norwegian_wg_prod_startThetas.csv")) -> no_wg_thetas
+write_csv(no_wg_thetas,"CAT batch files/no/wg/startThetas.csv")
 ```
 
 ## Norwegian WS
