@@ -27,7 +27,7 @@ This can be extracted from the translation file...
 read_csv2("Items/no/wg/translations.csv") %>% 
   filter(text_type == "catHeader") %>%
   select(-text_type) %>%
-  rename(category_descriptive = text) -> no_categories
+  rename(category_descriptive = text) -> no_wg_categories
 
 read_csv2("Items/no/wg/items.csv") %>% 
   select(item_id, definition, category, type) %>%
@@ -35,15 +35,15 @@ read_csv2("Items/no/wg/items.csv") %>%
                             type,category)) %>%
   mutate(type = if_else(grepl("gestures_*",type),
                         "gestures",type)) %>%
-  left_join(no_categories, 
-            by = c("category", "type" = "item_type")) -> no_items_categories
+  left_join(no_wg_categories, 
+            by = c("category", "type" = "item_type")) -> no_wg_items_categories
 ```
 
 Secondly, we merge the categories with the CAT items
 Some items have missing category bc. duplicates (vann) are stored differently
 in each file.
 ```{r join-cat-items-with-category}
-no_wg %>% left_join(no_items_categories, 
+no_wg %>% left_join(no_wg_items_categories, 
                     by = c("id" = "item_id", 
                            "item" = "definition")) -> no_wg
 
@@ -63,6 +63,9 @@ read_csv2("no_wg_filled_missing_category.csv") %>%
   category_descriptive = coalesce(category_descriptive_y, category_descriptive_x),
   item = coalesce(updated_item, item)
 ) %>% select(-ends_with("_x"), -ends_with("_y"), -updated_item) -> no_wg
+
+#check if there are any NA values
+#sum(is.na(no_wg))
 ```
 
 Third, we merge categories with question.
