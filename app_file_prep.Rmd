@@ -88,6 +88,11 @@ We need to bind files with StartThetas for gestures, comprehension, production
 rbind(read_csv("Data/norwegian_wg_gest_startThetas.csv"),
       read_csv("Data/norwegian_wg_comp_startThetas.csv"),
       read_csv("Data/norwegian_wg_prod_startThetas.csv")) -> no_wg_thetas
+
+no_wg_thetas %>%
+  mutate(gender = fct_recode(gender, "jente" = "Female",
+                             "gutt" = "Male")) -> no_wg_thetas
+
 write_csv(no_wg_thetas,"CAT batch files/no/wg/startThetas.csv")
 ```
 
