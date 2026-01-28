@@ -74,7 +74,9 @@ no_wg %>%
   mutate(question_ = case_when(group == "Prod" ~ "Sier barnet…",
                                group == "Comp" ~ "Forstår barnet…",
                                group == "Gest" ~ "")) %>%
-  unite("question", category_descriptive, question_, sep = ": ") %>%
+  unite("question", category_descriptive, question_, sep = ": ") %>% 
+  #we need to replace non-breaking spaces with regular spaces
+  mutate(across(where(is.character), ~ gsub("\u00A0", " ", .x))) %>%
   select(a1,d,item,question,group,id) %>% write_csv("CAT batch files/no/wg/items.csv")
 ```
 
