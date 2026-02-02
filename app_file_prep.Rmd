@@ -98,6 +98,7 @@ write_csv(no_wg_thetas,"CAT batch files/no/wg/startThetas.csv")
 
 ## Norwegian WS
 
+### Items
 ```{r import-ws}
 read_csv("Data/norwegian_ws_items.csv") -> no_ws
 ```
@@ -151,6 +152,19 @@ Third, we merge categories with question and write.
 no_ws %>% 
   mutate(question_ =  "Sier barnet…") %>%
   unite("question", category_descriptive, question_, sep = ": ") %>%
+  mutate(across(where(is.character), ~ gsub("\u00A0", " ", .x))) %>%
   select(a1,d,item,question,group,id) %>% write_csv("CAT batch files/no/ws/items.csv")
+```
+
+##  Start Thetas
+
+```{r}
+read_csv("Data/norwegian_ws_startThetas.csv") -> no_ws_thetas
+
+no_ws_thetas %>%
+  mutate(gender = fct_recode(gender, "jente" = "Female",
+                             "gutt" = "Male")) -> no_ws_thetas
+
+write_csv(no_ws_thetas,"CAT batch files/no/ws/startThetas.csv")
 ```
 
